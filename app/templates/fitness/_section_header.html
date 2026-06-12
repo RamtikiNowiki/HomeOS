@@ -1,0 +1,7 @@
+{# Labeled section divider — usage:
+   {% with label='Sets Today', extra='3 / session' %}{% include "fitness/_section_header.html" %}{% endwith %} #}
+<div class="flex items-center gap-3 mb-3">
+  <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">{{ label }}</p>
+  <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
+  {% if extra %}<span class="text-[10px] text-slate-600 shrink-0">{{ extra }}</span>{% endif %}
+</div>

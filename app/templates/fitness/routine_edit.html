@@ -2,7 +2,7 @@
 {% block title %}{{ routine.name if routine else 'New Routine' }}{% endblock %}
 {% block content %}
 {% include "fitness/_subnav.html" %}
-{% set crumbs = [('Tools', url_for('fitness.tools')), ('Routines', url_for('fitness.routines')), (routine.name if routine else 'New', none)] %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('Saved Routines', url_for('fitness.routines')), (routine.name if routine else 'New', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
 <div class="mb-6">

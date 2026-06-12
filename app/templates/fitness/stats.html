@@ -3,11 +3,14 @@
 
 {% block content %}
 {% include "fitness/_subnav.html" %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('Stats', none)] %}
+{% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">Stats</h1>
-  <p class="text-xs text-slate-500 mt-0.5">Personal records and weekly summary</p>
-</div>
+{% with title='Stats', subtitle='Personal records and weekly summary' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
+
+{% with label='This Week' %}{% include "fitness/_section_header.html" %}{% endwith %}
 
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
   <div class="p-4 rounded-2xl bg-panel border border-edge">
@@ -32,9 +35,9 @@
   </div>
 </div>
 
-<h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Personal Records</h2>
+{% with label='Personal Records', extra=(records|length ~ ' lifts' if records else none) %}{% include "fitness/_section_header.html" %}{% endwith %}
 {% if records %}
-<div class="space-y-2.5">
+<div class="space-y-2.5 stagger-in">
   {% for item in records %}
     <div class="flex items-center gap-3 p-4 rounded-2xl bg-panel border border-edge">
       <div class="flex-1 min-w-0">

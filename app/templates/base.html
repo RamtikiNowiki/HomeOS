@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" {% if current_user.is_authenticated %}data-accent="{{ current_user.accent }}"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -42,6 +42,7 @@
           boxShadow: {
             'glow-cyan':   'var(--glow-cyan)',
             'glow-indigo': 'var(--glow-indigo)',
+            'glow-pink':   '0 0 28px -2px rgba(249, 168, 212, 0.60)',
             'card':        'var(--shadow-card)',
             'float':       '0 12px 48px -8px rgba(0,0,0,0.70), 0 0 0 1px rgba(34,211,238,0.04)',
           },
@@ -97,7 +98,7 @@
         <button type="submit" title="Switch profile"
                 class="w-9 h-9 rounded-full grid place-items-center text-xs font-display font-bold
                        border transition-all duration-200 active:scale-95
-                       {{ 'bg-neon/10 text-neon border-neon/30 hover:bg-neon/20' if current_user.accent == 'cyan' else 'bg-pulse/10 text-pulse border-pulse/30 hover:bg-pulse/20' }}">
+                       {{ 'bg-neon/10 text-neon border-neon/30 hover:bg-neon/20' if current_user.accent != 'indigo' else 'bg-pulse/10 text-pulse border-pulse/30 hover:bg-pulse/20' }}">
           {{ current_user.initial }}
         </button>
       </form>
@@ -162,7 +163,7 @@
       <!-- User chip -->
       <div class="flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl">
         <span class="w-8 h-8 rounded-full flex-shrink-0 grid place-items-center text-xs font-display font-bold border
-                     {{ 'bg-neon/12 text-neon border-neon/30' if current_user.accent == 'cyan' else 'bg-pulse/12 text-pulse border-pulse/30' }}">
+                     {{ 'bg-neon/12 text-neon border-neon/30' if current_user.accent != 'indigo' else 'bg-pulse/12 text-pulse border-pulse/30' }}">
           {{ current_user.initial }}
         </span>
         <div class="flex-1 min-w-0">
@@ -270,6 +271,8 @@
     </div>
   </nav>
   {% endif %}
+
+  {% block overlays %}{% endblock %}
 
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block scripts %}{% endblock %}

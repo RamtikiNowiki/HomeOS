@@ -3,13 +3,12 @@
 
 {% block content %}
 {% include "fitness/_subnav.html" %}
-{% set crumbs = [('Tools', url_for('fitness.tools')), ('Library', none)] %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('My Exercises', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">Exercise Library</h1>
-  <p class="text-xs text-slate-500 mt-0.5">{{ exercises|length }} exercise{{ 's' if exercises|length != 1 }}</p>
-</div>
+{% with title='My Exercises', subtitle=(exercises|length ~ ' exercise' ~ ('s' if exercises|length != 1 else '') ~ ' in your personal library') %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 <div class="flex flex-wrap gap-2 mb-6">
   <a href="{{ url_for('fitness.catalog') }}"
@@ -46,11 +45,13 @@
 </form>
 
 {% if exercises %}
-<div class="space-y-3">
+<div class="space-y-3 stagger-in">
   {% for exercise in exercises %}
     {% set pr = exercise.personal_record() %}
     <div class="rounded-2xl bg-panel border border-edge overflow-hidden">
       <div class="flex items-center gap-3 p-4">
+        <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
+             alt="" loading="lazy" width="40" height="40" class="shrink-0 w-10 h-10 object-contain pixel-icon">
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-slate-100">{{ exercise.name }}</p>
           <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>

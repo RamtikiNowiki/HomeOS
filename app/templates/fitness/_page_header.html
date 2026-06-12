@@ -1,0 +1,16 @@
+{# Page title block — usage:
+   {% with title='History', subtitle='12 completed sessions' %}{% include "fitness/_page_header.html" %}{% endwith %}
+   Optional: action_url + action_label for a primary CTA button. #}
+<div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-display font-bold truncate">{{ title }}</h1>
+    {% if subtitle %}<p class="text-xs text-slate-500 mt-0.5">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if action_url and action_label %}
+  <a href="{{ action_url }}"
+     class="shrink-0 inline-flex items-center justify-center px-5 py-3 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void
+            bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all shadow-glow-cyan">
+    {{ action_label }}
+  </a>
+  {% endif %}
+</div>

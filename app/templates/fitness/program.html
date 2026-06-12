@@ -2,7 +2,7 @@
 {% block title %}Weekly Program{% endblock %}
 {% block content %}
 {% include "fitness/_subnav.html" %}
-{% set crumbs = [('Tools', url_for('fitness.tools')), ('Program', none)] %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('Weekly Program', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
 <div class="mb-6 flex items-start justify-between gap-3">

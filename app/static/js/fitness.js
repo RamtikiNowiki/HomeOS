@@ -1,30 +1,63 @@
 /* ---- Fitness Hub — in-gym UX helpers ---- */
 
-/** Exercise list search/filter */
-function initExerciseSearch(inputId, listSelector, rowSelector) {
-  const input = document.getElementById(inputId);
+/** Exercise list search/filter with optional muscle-group chips */
+function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector, defaultGroup }) {
+  const input = document.getElementById(searchId);
   const list = document.querySelector(listSelector);
-  if (!input || !list) return;
+  if (!list) return;
+
+  let activeGroup = defaultGroup || "";
+
+  const setChipStyles = () => {
+    if (!chipsSelector) return;
+    document.querySelectorAll(chipsSelector).forEach((chip) => {
+      const on = (chip.dataset.group || "") === activeGroup;
+      chip.classList.toggle("border-neon/40", on);
+      chip.classList.toggle("bg-neon/10", on);
+      chip.classList.toggle("text-neon", on);
+      chip.classList.toggle("border-edge", !on);
+      chip.classList.toggle("bg-raised", !on);
+      chip.classList.toggle("text-slate-400", !on);
+    });
+  };
 
   const filter = () => {
-    const q = input.value.trim().toLowerCase();
+    const q = (input?.value || "").trim().toLowerCase();
+    let visible = 0;
     list.querySelectorAll(rowSelector).forEach((row) => {
       const name = (row.dataset.name || "").toLowerCase();
       const group = (row.dataset.group || "").toLowerCase();
-      const match = !q || name.includes(q) || group.includes(q);
-      row.classList.toggle("hidden", !match);
+      const matchSearch = !q || name.includes(q) || group.includes(q);
+      const matchGroup = !activeGroup || row.dataset.group === activeGroup;
+      const show = matchSearch && matchGroup;
+      row.classList.toggle("hidden", !show);
+      if (show) visible += 1;
     });
     const empty = list.querySelector("[data-search-empty]");
-    if (empty) {
-      const visible = [...list.querySelectorAll(rowSelector)].some(
-        (r) => !r.classList.contains("hidden")
-      );
-      empty.classList.toggle("hidden", visible || !q);
-    }
+    if (empty) empty.classList.toggle("hidden", visible > 0 || !q);
   };
 
-  input.addEventListener("input", filter);
+  input?.addEventListener("input", filter);
+
+  if (chipsSelector) {
+    document.querySelectorAll(chipsSelector).forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const group = chip.dataset.group || "";
+        activeGroup = activeGroup === group ? "" : group;
+        setChipStyles();
+        filter();
+      });
+    });
+    setChipStyles();
+  }
+
+  filter();
   return filter;
+}
+
+/** @deprecated — use initExercisePicker for richer filtering */
+function initExerciseSearch(inputId, listSelector, rowSelector) {
+  return initExercisePicker({ searchId: inputId, listSelector, rowSelector });
 }
 
 /** Hide built-in split cards the user doesn't use */
@@ -120,17 +153,21 @@ function initRpeChips(container, input) {
 function initWarmupToggle(wrap) {
   if (!wrap) return;
   const hidden = wrap.querySelector('input[type="hidden"]');
-  wrap.querySelectorAll("[data-warmup]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const val = btn.dataset.warmup === "1";
-      hidden.value = val ? "1" : "0";
-      wrap.querySelectorAll("[data-warmup]").forEach((b) => {
-        const on = b.dataset.warmup === (val ? "1" : "0");
-        b.classList.toggle("bg-neon/15", on);
-        b.classList.toggle("border-neon/40", on);
-        b.classList.toggle("text-neon", on);
-      });
+
+  const applyWarmupState = (isWarmup) => {
+    hidden.value = isWarmup ? "1" : "0";
+    wrap.querySelectorAll("[data-warmup]").forEach((b) => {
+      const on = b.dataset.warmup === (isWarmup ? "1" : "0");
+      b.classList.toggle("bg-neon/15", on);
+      b.classList.toggle("border-neon/40", on);
+      b.classList.toggle("text-neon", on);
+      b.classList.toggle("text-slate-500", !on); /* ensure off-state colour is visible */
+      b.classList.toggle("font-semibold", on);
     });
+  };
+
+  wrap.querySelectorAll("[data-warmup]").forEach((btn) => {
+    btn.addEventListener("click", () => applyWarmupState(btn.dataset.warmup === "1"));
   });
 }
 
@@ -237,8 +274,218 @@ function buildSetRow(data, weightFormat) {
   return row;
 }
 
+/** ══════════════════════════════════════════════════════════
+ *  Collapsible Log Sheet — swipe-down to minimise, shows
+ *  workout-plan quick-pick tray in the collapsed strip.
+ *  ══════════════════════════════════════════════════════════ */
+function initLogSheet() {
+  const sheet = document.getElementById("log-sheet");
+  const dragZone = document.getElementById("sheet-drag-zone");
+  const body = document.getElementById("sheet-body");
+  const expandBtn = document.getElementById("sheet-expand-btn");
+  const tray = document.getElementById("sheet-exercise-tray");
+  const miniLabel = document.getElementById("sheet-mini-label");
+  const spacer = document.getElementById("log-sheet-spacer");
+
+  if (!sheet || !body) return null;
+
+  let exercises = [];
+  try {
+    const dataEl = document.getElementById("sheet-exercises-data");
+    if (dataEl) exercises = JSON.parse(dataEl.textContent || "[]");
+  } catch (_) {}
+
+  let collapsed = false;
+  let autoExpandTimer = null;
+  let dragging = false;
+  let dragStartY = 0;
+  let dragStartTranslate = 0;
+
+  function buildTray(scrollToEnd = false) {
+    if (!tray) return;
+    tray.innerHTML = "";
+    if (!exercises.length) {
+      const hint = document.createElement("span");
+      hint.className = "text-[10px] text-slate-500 px-2 py-1 whitespace-nowrap";
+      hint.textContent = "Add exercises in Switch panel ↑";
+      tray.appendChild(hint);
+      return;
+    }
+    exercises.forEach((ex) => {
+      if (ex.current) {
+        const span = document.createElement("span");
+        span.className = "sheet-tray-chip is-current";
+        span.textContent = ex.name;
+        span.title = `${ex.name} (current)`;
+        tray.appendChild(span);
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = ex.url;
+      a.className = "sheet-tray-chip";
+      if (ex.priority) a.classList.add("is-priority");
+      if (ex.done) a.classList.add("is-done");
+      a.textContent = ex.name;
+      a.title = ex.name;
+      tray.appendChild(a);
+    });
+    if (scrollToEnd) {
+      requestAnimationFrame(() => {
+        tray.scrollTo({ left: tray.scrollWidth, behavior: "smooth" });
+      });
+    }
+  }
+
+  function setPlanExercises(plan, { scrollToEnd = false } = {}) {
+    exercises = plan || [];
+    buildTray(scrollToEnd);
+  }
+
+  function visibleHeight() {
+    const handleH = sheet.querySelector(".sheet-handle")?.offsetHeight || 0;
+    const bodyH = collapsed ? 0 : body.offsetHeight;
+    return handleH + bodyH;
+  }
+
+  function updateSpacer() {
+    if (!spacer) return;
+    const extra = window.innerWidth >= 1024 ? 12 : 8;
+    spacer.style.height = `${visibleHeight() + extra}px`;
+  }
+
+  function getSlideAmount() {
+    return body.offsetHeight;
+  }
+
+  function collapse({ auto = false } = {}) {
+    collapsed = true;
+    clearTimeout(autoExpandTimer);
+    sheet.classList.add("is-collapsed");
+    sheet.style.transform = `translateY(${getSlideAmount()}px)`;
+    updateSpacer();
+    if (auto) autoExpandTimer = setTimeout(() => expand(), 10000);
+  }
+
+  function expand() {
+    collapsed = false;
+    clearTimeout(autoExpandTimer);
+    sheet.classList.remove("is-collapsed");
+    sheet.style.transform = "translateY(0)";
+    updateSpacer();
+  }
+
+  buildTray();
+  requestAnimationFrame(updateSpacer);
+
+  expandBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    expand();
+  });
+
+  dragZone?.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    dragStartY = e.clientY;
+    const mat = new DOMMatrix(getComputedStyle(sheet).transform);
+    dragStartTranslate = isNaN(mat.m42) ? 0 : mat.m42;
+    sheet.style.transition = "none";
+    dragZone.setPointerCapture(e.pointerId);
+  });
+
+  dragZone?.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dy = e.clientY - dragStartY;
+    const max = getSlideAmount();
+    const next = Math.max(0, Math.min(max, dragStartTranslate + dy));
+    sheet.style.transform = `translateY(${next}px)`;
+  });
+
+  const snapAfterDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    sheet.style.transition = "";
+    const mat = new DOMMatrix(getComputedStyle(sheet).transform);
+    const cur = isNaN(mat.m42) ? 0 : mat.m42;
+    if (cur > getSlideAmount() * 0.35) collapse();
+    else expand();
+  };
+
+  dragZone?.addEventListener("pointerup", snapAfterDrag);
+  dragZone?.addEventListener("pointercancel", () => {
+    dragging = false;
+    sheet.style.transition = "";
+    expand();
+  });
+
+  dragZone?.addEventListener("click", () => {
+    if (dragging) return;
+    collapsed ? expand() : collapse();
+  });
+
+  new ResizeObserver(updateSpacer).observe(body);
+  new ResizeObserver(updateSpacer).observe(sheet.querySelector(".sheet-handle") || body);
+  window.addEventListener("resize", updateSpacer);
+
+  const api = {
+    collapse,
+    expand,
+    setPlanExercises,
+    afterSetLogged(setCount) {
+      if (miniLabel) miniLabel.textContent = `Set ${setCount + 1}`;
+      const submitBtn = document.querySelector("#log-set-form [type=submit]");
+      if (submitBtn) submitBtn.textContent = `Log Set ${setCount + 1}`;
+      collapse({ auto: true });
+    },
+  };
+  window.logSheetApi = api;
+  return api;
+}
+
+/** AJAX add/remove for workout plan on the log page — updates tray live */
+function initPlanAjax(sheetApi) {
+  const switchPanel = document.getElementById("workout-switch");
+  if (!switchPanel || !sheetApi) return;
+
+  switchPanel.querySelectorAll("form.plan-ajax-form").forEach((form) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = form.dataset.confirm;
+      if (msg && !confirm(msg)) return;
+
+      const btn = form.querySelector("[type=submit]");
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error("Failed");
+
+        const isAdd = form.action.includes("/plan/add/");
+        sheetApi.setPlanExercises(data.plan, { scrollToEnd: isAdd });
+
+        if (isAdd && data.exercise) {
+          const row = form.closest(".exercise-switch-row");
+          row?.classList.add("border-neon/30", "bg-neon/5");
+          const added = data.plan.find((p) => p.id === data.exercise.id);
+          const logUrl = added?.url || "#";
+          form.outerHTML = `<a href="${logUrl}" class="shrink-0 text-[10px] font-display uppercase text-neon px-2 py-1">Log →</a>`;
+        } else if (!isAdd) {
+          form.closest(".switch-plan-row")?.remove();
+        }
+      } catch (err) {
+        form.submit();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+  });
+}
+
 /** AJAX set logging on exercise page */
-function initAjaxSetLogging(formId) {
+function initAjaxSetLogging(formId, sheetApi) {
   const form = document.getElementById(formId || "log-set-form");
   if (!form) return;
 
@@ -320,6 +567,8 @@ function initAjaxSetLogging(formId) {
       updatePlateHint();
       rest.start(rest.defaultSeconds);
       showUndoToast(data.set, form.action.replace("/sets", "/sets"));
+      /* Collapse the sheet to reveal next-exercise tray */
+      sheetApi?.afterSetLogged(data.set_count);
     } catch (err) {
       console.error(err);
       form.submit();
@@ -444,15 +693,61 @@ function initConfirmForms(selector) {
   });
 }
 
+/** Collapsible switch panel (#workout-switch) */
+function initSwitchPanel() {
+  const header = document.getElementById("switch-header");
+  const body = document.getElementById("switch-body");
+  const chevron = document.getElementById("switch-chevron");
+  if (!header || !body) return;
+
+  let open = false;
+  const toggle = (force) => {
+    open = force !== undefined ? force : !open;
+    body.classList.toggle("hidden", !open);
+    header.setAttribute("aria-expanded", String(open));
+    chevron?.classList.toggle("rotate-180", open);
+  };
+
+  /* Auto-open on log page if user has exercises to show (no sets yet) */
+  const hasSets = document.getElementById("sets-list")?.querySelector("[data-set-row]");
+  if (!hasSets) toggle(true);
+
+  header.addEventListener("click", () => toggle());
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initExerciseSearch("exercise-search", "#exercise-list", ".exercise-row");
-  initExerciseSearch("session-exercise-search", "#session-exercise-list", ".exercise-row");
-  initExerciseSearch("switch-exercise-search", "#switch-exercise-list", ".exercise-switch-row");
+
+  /* Session page: picker with defaultGroup from data-attr */
+  const sessionPicker = document.getElementById("session-exercise-picker");
+  if (sessionPicker) {
+    initExercisePicker({
+      searchId: "session-exercise-search",
+      listSelector: "#session-exercise-list",
+      rowSelector: ".exercise-row",
+      chipsSelector: "#session-muscle-chips .muscle-chip",
+      defaultGroup: sessionPicker.dataset.defaultMuscle || "",
+    });
+  }
+
+  /* Switch-panel: pass defaultGroup so LEGS session pre-selects the Legs chip */
+  const switchSection = document.getElementById("workout-switch");
+  initExercisePicker({
+    searchId: "switch-exercise-search",
+    listSelector: "#switch-exercise-list",
+    rowSelector: ".exercise-switch-row",
+    chipsSelector: "#switch-muscle-chips .muscle-chip",
+    defaultGroup: switchSection?.dataset.defaultMuscle || "",
+  });
+
   initExerciseSearch("routine-exercise-search", "#routine-pick-list", ".routine-pick-row");
   initHiddenSplits();
   initConfirmForms("[data-confirm]");
   initCollapsible("prev-target-toggle", "prev-target-panel");
-  initCollapsible("all-exercises-toggle", "all-exercises-panel");
-  initAjaxSetLogging("log-set-form");
+  initSwitchPanel();
+
+  const sheetApi = initLogSheet();
+  initPlanAjax(sheetApi);
+  initAjaxSetLogging("log-set-form", sheetApi);
   initNotesAutosave("session-notes", document.getElementById("session-notes")?.dataset.autosaveUrl);
 });

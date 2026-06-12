@@ -17,6 +17,7 @@ from .catalog import (
     catalog_entry,
     catalog_for_muscle_group,
     get_split,
+    infer_split_key_from_name,
 )
 from .service import (
     get_program_week,
@@ -26,10 +27,13 @@ from .service import (
     last_logged_exercise,
     next_exercise_in_session,
     resolve_split_exercises,
+    resolved_split_key,
     routine_progress,
     session_plan_progress,
+    sort_exercises_for_session,
     split_progress,
     suggest_next_exercise,
+    default_muscle_filter_for_session,
     user_exercise_names,
 )
 
@@ -78,6 +82,30 @@ def _wants_json() -> bool:
         or request.accept_mimetypes.best_match(["application/json", "text/html"])
         == "application/json"
     )
+
+
+def _plan_tray_payload(session: WorkoutSession, current_exercise_id: int | None = None) -> list[dict]:
+    """Workout-plan exercises for the collapsed log-sheet tray (in plan order)."""
+    progress = session_plan_progress(session)
+    if not progress:
+        return []
+    done_ids = {ex.id for ex in progress.get("done", [])}
+    skipped = progress.get("skipped", [])
+    remaining = progress.get("remaining", [])
+    next_id = remaining[0].id if remaining else None
+    tray = []
+    for ex in progress.get("recommended", []):
+        if ex in skipped:
+            continue
+        tray.append({
+            "id": ex.id,
+            "name": ex.name,
+            "url": url_for("fitness.log_exercise", session_id=session.id, exercise_id=ex.id),
+            "priority": ex.id == next_id and ex.id != current_exercise_id,
+            "current": ex.id == current_exercise_id,
+            "done": ex.id in done_ids,
+        })
+    return tray
 
 
 def _set_to_json(workout_set: WorkoutSet) -> dict:
@@ -190,12 +218,21 @@ def start_session():
 
     split_id = request.form.get("split", "").strip() or None
     split = get_split(split_id) if split_id else None
+    use_split_template = bool(split_id)
 
     name = request.form.get("name", "").strip()
     if not name:
         name = split["name"] if split else datetime.now().strftime("%A Session")
 
-    if split_id:
+    focus = request.form.get("focus", "").strip() or None
+    if not split_id and focus:
+        split_id = focus
+    elif not split_id and name:
+        inferred = infer_split_key_from_name(name)
+        if inferred:
+            split_id = inferred
+
+    if use_split_template and split_id:
         added, _ = import_split_exercises(current_user.id, split_id)
         if added:
             flash(f"Added {added} exercises to your library.", "success")
@@ -204,10 +241,16 @@ def start_session():
         user_id=current_user.id,
         name=name,
         workout_type=split_id,
+        use_split_template=use_split_template,
     )
     db.session.add(session)
     db.session.commit()
-    flash("Session started — follow the suggested exercises below.", "success")
+    if use_split_template and split:
+        flash("Session started — follow the suggested exercises below.", "success")
+    elif split_id and split:
+        flash(f"Session started — tap + to add {split['name'].lower()} exercises to your workout.", "success")
+    else:
+        flash("Session started — tap + to add exercises to your workout.", "success")
     return redirect(url_for("fitness.session_detail", session_id=session.id))
 
 
@@ -215,25 +258,22 @@ def start_session():
 @login_required
 def session_detail(session_id: int):
     session = _get_own_session(session_id)
-    exercises = (
-        Exercise.query.filter_by(user_id=current_user.id)
-        .order_by(Exercise.muscle_group, Exercise.name)
-        .all()
+    exercises = sort_exercises_for_session(
+        session,
+        Exercise.query.filter_by(user_id=current_user.id).all(),
     )
     performed = [
         {"exercise": ex, "sets": session.sets_for_exercise(ex.id)}
         for ex in session.exercises_performed
     ]
-    progress = None
-    split_info = None
-    if session.routine_id and session.routine:
-        progress = routine_progress(session, session.routine)
-    elif session.workout_type:
-        progress = split_progress(session, session.workout_type)
-        split_info = get_split(session.workout_type)
-    recommended_ids = {ex.id for ex in progress["recommended"]} if progress else set()
+    progress = session_plan_progress(session)
+    split_key = session.workout_type
+    split_info = get_split(split_key) if split_key else None
+    planned_id_set = set(session.planned_ids())
+    recommended_ids = {ex.id for ex in progress["recommended"]} if progress else planned_id_set
     other_exercises = [ex for ex in exercises if ex.id not in recommended_ids]
     next_exercise = suggest_next_exercise(session) if session.is_active else None
+    is_ad_hoc = not session.use_split_template and not session.routine_id
     return render_template(
         "fitness/session.html",
         session=session,
@@ -242,6 +282,10 @@ def session_detail(session_id: int):
         progress=progress,
         split_info=split_info,
         other_exercises=other_exercises,
+        planned_id_set=planned_id_set,
+        is_ad_hoc=is_ad_hoc,
+        default_muscle_filter=default_muscle_filter_for_session(session),
+        muscle_groups=MUSCLE_GROUPS,
         next_exercise=next_exercise,
     )
 
@@ -304,6 +348,59 @@ def _redirect_after_plan_change(session_id: int):
     if target:
         return redirect(target)
     return redirect(url_for("fitness.session_detail", session_id=session_id))
+
+
+@fitness_bp.route("/session/<int:session_id>/plan/add/<int:exercise_id>", methods=["POST"])
+@login_required
+def add_to_session_plan(session_id: int, exercise_id: int):
+    """Add an exercise to the user's on-the-fly workout queue."""
+    session = _get_own_session(session_id)
+    if not session.is_active:
+        flash("This session is already finished.", "error")
+        return _redirect_after_plan_change(session_id)
+    exercise = _get_own_exercise(exercise_id)
+    if exercise.id in session.planned_ids():
+        flash(f"“{exercise.name}” is already in your workout.", "info")
+        return _redirect_after_plan_change(session_id)
+    session.add_planned_exercise(exercise.id)
+    db.session.commit()
+    if _wants_json():
+        current_id = request.form.get("current_exercise_id", type=int)
+        return jsonify({
+            "ok": True,
+            "exercise": {"id": exercise.id, "name": exercise.name},
+            "plan": _plan_tray_payload(session, current_id),
+        })
+    flash(f"Added “{exercise.name}” to your workout.", "success")
+    return _redirect_after_plan_change(session_id)
+
+
+@fitness_bp.route("/session/<int:session_id>/plan/remove/<int:exercise_id>", methods=["POST"])
+@login_required
+def remove_from_session_plan(session_id: int, exercise_id: int):
+    """Remove an exercise from the on-the-fly queue (before logging sets)."""
+    session = _get_own_session(session_id)
+    if not session.is_active:
+        flash("This session is already finished.", "error")
+        return _redirect_after_plan_change(session_id)
+    exercise = _get_own_exercise(exercise_id)
+    if exercise.id not in session.planned_ids():
+        flash(f"“{exercise.name}” isn't in your workout list.", "error")
+        return _redirect_after_plan_change(session_id)
+    if session.sets_for_exercise(exercise.id):
+        flash(f"“{exercise.name}” already has logged sets — finish logging or delete sets first.", "error")
+        return _redirect_after_plan_change(session_id)
+    session.remove_planned_exercise(exercise.id)
+    db.session.commit()
+    if _wants_json():
+        current_id = request.form.get("current_exercise_id", type=int)
+        return jsonify({
+            "ok": True,
+            "exercise": {"id": exercise.id, "name": exercise.name},
+            "plan": _plan_tray_payload(session, current_id),
+        })
+    flash(f"Removed “{exercise.name}” from your workout.", "success")
+    return _redirect_after_plan_change(session_id)
 
 
 @fitness_bp.route("/session/<int:session_id>/skip/<int:exercise_id>", methods=["POST"])
@@ -376,13 +473,16 @@ def log_exercise(session_id: int, exercise_id: int):
     nxt = next_exercise_in_session(session, exercise.id, session.workout_type)
     plate_hint = calculate_plates(float(prefill["weight"]), DEFAULT_BAR_LB) if prefill.get("weight") else None
     progress = session_plan_progress(session)
-    all_exercises = (
-        Exercise.query.filter_by(user_id=current_user.id)
-        .order_by(Exercise.muscle_group, Exercise.name)
-        .all()
+    all_exercises = sort_exercises_for_session(
+        session,
+        Exercise.query.filter_by(user_id=current_user.id).all(),
     )
     plan_ids = {ex.id for ex in progress["recommended"]} if progress else set()
-    extra_exercises = [ex for ex in all_exercises if ex.id not in plan_ids]
+    extra_exercises = [ex for ex in all_exercises if ex.id not in plan_ids and ex.id != exercise.id]
+    is_ad_hoc = not session.use_split_template and not session.routine_id
+    planned_id_set = set(session.planned_ids())
+
+    tray_exercises = _plan_tray_payload(session, exercise.id)
 
     return render_template(
         "fitness/log_exercise.html",
@@ -395,6 +495,10 @@ def log_exercise(session_id: int, exercise_id: int):
         plate_hint=plate_hint,
         progress=progress,
         extra_exercises=extra_exercises,
+        tray_exercises=tray_exercises,
+        is_ad_hoc=is_ad_hoc,
+        planned_id_set=planned_id_set,
+        default_muscle_filter=default_muscle_filter_for_session(session),
     )
 
 

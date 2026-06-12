@@ -16,6 +16,8 @@ from .catalog import (
     catalog_entry,
     get_split,
     get_split_exercise_names,
+    infer_split_key_from_name,
+    muscle_groups_for_split,
 )
 
 
@@ -102,6 +104,11 @@ def next_exercise_in_session(session, current_exercise_id: int, split_id: str | 
     skipped_ids = session.skipped_ids()
     performed_ids.add(current_exercise_id)
 
+    if session.planned_ids():
+        for ex in session.planned_exercises():
+            if ex.id not in performed_ids and ex.id not in skipped_ids:
+                return ex
+
     if session.routine_id:
         routine = db.session.get(WorkoutRoutine, session.routine_id)
         if routine:
@@ -109,15 +116,15 @@ def next_exercise_in_session(session, current_exercise_id: int, split_id: str | 
                 if entry.exercise_id not in performed_ids and entry.exercise_id not in skipped_ids:
                     return entry.exercise
 
-    if split_id:
-        for ex in resolve_split_exercises(session.user_id, split_id):
+    effective_split = split_id or (session.workout_type if session.use_split_template else None)
+    if effective_split:
+        for ex in resolve_split_exercises(session.user_id, effective_split):
             if ex.id not in performed_ids and ex.id not in skipped_ids:
                 return ex
 
-    all_exercises = (
-        Exercise.query.filter_by(user_id=session.user_id)
-        .order_by(Exercise.muscle_group, Exercise.name)
-        .all()
+    all_exercises = sort_exercises_for_session(
+        session,
+        Exercise.query.filter_by(user_id=session.user_id).all(),
     )
     for ex in all_exercises:
         if ex.id not in performed_ids and ex.id not in skipped_ids:
@@ -181,6 +188,7 @@ def start_session_from_program_day(user_id: int, day: UserProgramDay) -> Workout
             user_id=user_id,
             name=split["name"],
             workout_type=day.split_key,
+            use_split_template=True,
         )
         db.session.add(session)
         db.session.commit()
@@ -199,6 +207,8 @@ def repeat_session(user_id: int, source: WorkoutSession) -> WorkoutSession:
         user_id=user_id,
         name=f"{source.name} (repeat)",
         workout_type=source.workout_type,
+        use_split_template=source.use_split_template,
+        planned_exercise_ids=source.planned_exercise_ids,
         routine_id=source.routine_id,
     )
     db.session.add(session)
@@ -280,12 +290,87 @@ def get_program_week(user_id: int) -> list[UserProgramDay | None]:
 DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
 
-def session_plan_progress(session: WorkoutSession) -> dict | None:
-    """Split or routine progress for an active session."""
-    if session.routine_id and session.routine:
-        return routine_progress(session, session.routine)
+def resolved_split_key(session: WorkoutSession) -> str | None:
+    """Split template for this session — explicit type or inferred from the name."""
     if session.workout_type:
-        return split_progress(session, session.workout_type)
+        return session.workout_type
+    return infer_split_key_from_name(session.name or "")
+
+
+def default_muscle_filter_for_session(session: WorkoutSession) -> str:
+    """Pre-select a muscle chip when the session has a focus but no fixed template."""
+    if not session.workout_type or session.use_split_template or session.routine_id:
+        return ""
+    primary = {
+        "legs": "Legs",
+        "lower": "Legs",
+        "chest": "Chest",
+        "back": "Back",
+        "shoulders": "Shoulders",
+        "arms": "Arms",
+        "push": "Chest",
+        "pull": "Back",
+    }
+    return primary.get(session.workout_type, "")
+
+
+def sort_exercises_for_session(session: WorkoutSession, exercises: list[Exercise]) -> list[Exercise]:
+    """Put session-relevant exercises first (split order, then muscle group)."""
+    split_key = resolved_split_key(session)
+    if not split_key:
+        return exercises
+
+    split_order = {
+        ex.id: i
+        for i, ex in enumerate(resolve_split_exercises(session.user_id, split_key))
+    }
+    focus_groups = muscle_groups_for_split(split_key)
+
+    def sort_key(ex: Exercise) -> tuple:
+        in_split = 0 if ex.id in split_order else 1
+        group_rank = 0 if ex.muscle_group in focus_groups else 1
+        split_rank = split_order.get(ex.id, 999)
+        return (in_split, group_rank, split_rank, ex.muscle_group, ex.name.lower())
+
+    return sorted(exercises, key=sort_key)
+
+
+def custom_plan_progress(session: WorkoutSession) -> dict:
+    """Progress through a user-built on-the-fly exercise queue."""
+    recommended = session.planned_exercises()
+    performed_ids = {ex.id for ex in session.exercises_performed}
+    skipped_ids = session.skipped_ids()
+    done = [ex for ex in recommended if ex.id in performed_ids]
+    skipped = [ex for ex in recommended if ex.id in skipped_ids and ex.id not in performed_ids]
+    remaining = [
+        ex for ex in recommended
+        if ex.id not in performed_ids and ex.id not in skipped_ids
+    ]
+    return {
+        "recommended": recommended,
+        "done": done,
+        "skipped": skipped,
+        "remaining": remaining,
+        "total": len(recommended),
+        "done_count": len(done),
+        "skipped_count": len(skipped),
+        "ad_hoc": True,
+    }
+
+
+def session_plan_progress(session: WorkoutSession) -> dict | None:
+    """Split, routine, or user-picked plan progress for an active session."""
+    if session.routine_id and session.routine:
+        progress = routine_progress(session, session.routine)
+        progress["ad_hoc"] = False
+        return progress
+    if session.planned_ids():
+        return custom_plan_progress(session)
+    if session.use_split_template and session.workout_type:
+        import_split_exercises(session.user_id, session.workout_type)
+        progress = split_progress(session, session.workout_type)
+        progress["ad_hoc"] = False
+        return progress
     return None
 
 

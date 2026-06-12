@@ -3,21 +3,15 @@
 
 {% block content %}
 {% include "fitness/_subnav.html" %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('History', none)] %}
+{% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-  <div>
-    <h1 class="text-2xl font-display font-bold">History</h1>
-    <p class="text-xs text-slate-500 mt-0.5">{{ sessions|length }} completed session{{ 's' if sessions|length != 1 }}</p>
-  </div>
-  <a href="{{ url_for('fitness.index') }}#start"
-     class="shrink-0 inline-flex items-center justify-center px-5 py-3 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void
-            bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all shadow-glow-cyan">
-    Start New Workout
-  </a>
-</div>
+{% with title='History', subtitle=(sessions|length ~ ' completed session' ~ ('s' if sessions|length != 1 else '')), action_url=url_for('fitness.index') ~ '#start', action_label='Start New Workout' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 {% if sessions %}
-<div class="space-y-3">
+<div class="space-y-3 stagger-in">
   {% for session in sessions %}
     <details class="group rounded-2xl bg-panel border border-edge overflow-hidden">
       <summary class="flex items-center gap-3 p-4 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
@@ -65,6 +59,8 @@
 </div>
 {% else %}
 <div class="p-8 rounded-2xl bg-panel border border-edge text-center">
+  <img src="{{ url_for('static', filename='img/px/' + px_theme + '/empty-state.png') }}"
+       alt="" width="72" height="54" class="mx-auto mb-3 pixel-icon">
   <p class="text-sm text-slate-400 mb-4">No completed sessions yet — your history builds here after you finish a workout.</p>
   <a href="{{ url_for('fitness.index') }}#start"
      class="inline-flex px-6 py-3 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void

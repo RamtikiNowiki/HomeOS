@@ -3,6 +3,8 @@
 
 {% block content %}
 {% include "fitness/_subnav.html" %}
+{% set crumbs = [('Fitness', url_for('fitness.index')), ('Train', none)] %}
+{% include "fitness/_breadcrumb.html" %}
 
 {% if active_session %}
 {# ---- Workout mode ---- #}
@@ -127,9 +129,10 @@
 
 {% if routines %}
 <div class="mb-6">
-  <div class="flex items-center justify-between mb-3">
-    <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">My Routines</p>
-    <a href="{{ url_for('fitness.plan') }}" class="text-xs text-neon hover:underline">+ Plan new</a>
+  <div class="flex items-center gap-3 mb-3">
+    <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">My Routines</p>
+    <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
+    <a href="{{ url_for('fitness.plan') }}" class="text-xs text-neon hover:underline shrink-0">+ Plan new</a>
   </div>
   <div class="space-y-2.5">
     {% for routine in routines %}
@@ -199,12 +202,20 @@
   </div>
 </details>
 
-<form action="{{ url_for('fitness.start_session') }}" method="post" class="mb-6">
+<form action="{{ url_for('fitness.start_session') }}" method="post" class="mb-6" id="quick-session-form">
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-2">Quick blank session</p>
-    <p class="text-xs text-slate-500 mb-2">Skip planning — start empty and pick exercises as you go</p>
+    <p class="text-xs text-slate-500 mb-3">Name your focus — you pick the exercises, we sort suggestions to match</p>
+    <div class="flex flex-wrap gap-1.5 mb-3">
+      {% for label in ['Legs', 'Push', 'Pull', 'Upper', 'Lower', 'Full Body'] %}
+      <button type="button" data-session-name="{{ label }}"
+              class="session-name-chip px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 hover:border-neon/40 hover:text-neon transition-colors">
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
     <div class="flex gap-2">
-      <input type="text" name="name" placeholder="Session name (optional)"
+      <input type="text" name="name" id="session-name-input" placeholder="Session name (e.g. Legs)"
              class="flex-1 px-4 py-3 rounded-xl bg-void border border-edge text-slate-100 text-sm">
       <button type="submit"
               class="px-4 py-3 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void
@@ -218,12 +229,13 @@
 
 {# ---- Exercise search + list ---- #}
 <div class="mb-6">
-  <div class="flex items-center justify-between mb-3 gap-2">
-    <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400">
-      {{ 'Add Exercise' if active_session else 'Log Exercises' }}
-    </h2>
+  <div class="flex items-center gap-3 mb-3">
+    <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">
+      {{ 'Add Exercise' if active_session else 'Your Exercises' }}
+    </p>
+    <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
     {% if exercises|length > 0 %}
-    <select id="muscle-filter" class="text-xs px-2 py-1.5 rounded-lg bg-raised border border-edge text-slate-400">
+    <select id="muscle-filter" class="shrink-0 text-xs px-2 py-1.5 rounded-lg bg-raised border border-edge text-slate-400">
       <option value="">All groups</option>
       {% for g in muscle_groups %}
         <option value="{{ g }}">{{ g }}</option>
@@ -241,11 +253,13 @@
   </div>
   {% endif %}
 
-  <div class="space-y-2.5" id="exercise-list">
+  <div class="space-y-2.5 stagger-in" id="exercise-list">
     {% for exercise in exercises %}
       {% set previous = exercise.last_completed_session_sets() %}
       <div class="exercise-row flex items-center gap-3 p-4 rounded-2xl bg-panel border border-edge"
            data-group="{{ exercise.muscle_group }}" data-name="{{ exercise.name }}">
+        <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
+             alt="" loading="lazy" width="40" height="40" class="shrink-0 w-10 h-10 object-contain pixel-icon">
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-slate-100 truncate">{{ exercise.name }}</p>
           <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>
@@ -272,6 +286,8 @@
       </div>
     {% else %}
       <div class="p-5 rounded-2xl bg-panel border border-edge text-center">
+        <img src="{{ url_for('static', filename='img/px/' + px_theme + '/empty-state.png') }}"
+             alt="" width="64" height="48" class="mx-auto mb-2 pixel-icon">
         <p class="text-sm text-slate-400 mb-3">No exercises in your library yet.</p>
         <form action="{{ url_for('fitness.catalog_import_starter') }}" method="post">
           <button type="submit"
@@ -313,7 +329,7 @@
 
 {% if recent_sessions and not active_session %}
 <div>
-  <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Recent Sessions</h2>
+  {% with label='Recent Sessions' %}{% include "fitness/_section_header.html" %}{% endwith %}
   <div class="space-y-2.5">
     {% for session in recent_sessions %}
       <a href="{{ url_for('fitness.session_detail', session_id=session.id) }}"
@@ -349,5 +365,13 @@
       });
     });
   }
+
+  document.querySelectorAll(".session-name-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const input = document.getElementById("session-name-input");
+      if (input) input.value = chip.dataset.sessionName;
+      document.getElementById("quick-session-form")?.requestSubmit();
+    });
+  });
 </script>
 {% endblock %}

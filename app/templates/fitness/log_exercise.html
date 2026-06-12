@@ -4,76 +4,105 @@
 {% block content %}
 {% include "fitness/_subnav.html" %}
 {% set crumbs = [
-  ('Train', url_for('fitness.index')),
+  ('Fitness', url_for('fitness.index')),
   (session.name, url_for('fitness.session_detail', session_id=session.id)),
   (exercise.name, none)
 ] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-4 pb-2">
-  <h1 class="text-2xl font-display font-bold">{{ exercise.name }}</h1>
-  <p class="text-xs text-slate-500 mt-0.5">{{ exercise.muscle_group }}</p>
+{# ── SECTION: Exercise identity ─────────────────────────── #}
+<div class="mb-6">
+  <div class="flex items-start justify-between gap-2">
+    <div class="flex items-start gap-3 min-w-0">
+      <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
+           alt="" width="48" height="48" class="shrink-0 w-12 h-12 object-contain pixel-icon mt-0.5">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-display font-bold leading-tight">{{ exercise.name }}</h1>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="px-2 py-0.5 rounded-md bg-raised border border-edge text-[10px] font-display uppercase tracking-wider text-slate-400">{{ exercise.muscle_group }}</span>
+          {% if current_sets %}
+            <span class="text-[10px] text-slate-500">{{ current_sets|length }} set{{ 's' if current_sets|length != 1 }} today</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% if session.is_active %}
+    <a href="{{ url_for('fitness.session_detail', session_id=session.id) }}"
+       class="shrink-0 mt-0.5 px-3 py-1.5 rounded-xl text-[10px] font-display uppercase tracking-widest border border-edge text-slate-400 hover:border-neon/40 hover:text-neon transition-colors">
+      Session
+    </a>
+    {% endif %}
+  </div>
 </div>
 
-{% with current_exercise=exercise %}
-{% include "fitness/_workout_switch.html" %}
-{% endwith %}
-
+{# ── SECTION: Previous target ───────────────────────────── #}
 {% if previous %}
-<button type="button" id="prev-target-toggle" aria-expanded="false"
-        class="w-full mb-4 p-4 rounded-2xl border border-pulse/40 bg-pulse/5 text-left hover:bg-pulse/10 transition-colors">
-  <div class="flex items-center gap-2">
-    <p class="text-xs font-display font-bold uppercase tracking-widest text-pulse">Previous target</p>
-    <span class="font-display font-bold text-slate-100 ml-2">{{ previous.top_set.weight|lbs }} lb × {{ previous.top_set.reps }}</span>
-    <span class="ml-auto text-[10px] text-slate-500">{{ previous.session.started_at.strftime('%b %d') }} · tap to expand</span>
+<div class="mb-4">
+  <button type="button" id="prev-target-toggle" aria-expanded="false"
+          class="w-full p-3.5 rounded-2xl border border-pulse/30 bg-pulse/5 text-left hover:bg-pulse/10 transition-colors">
+    <div class="flex items-center gap-3">
+      <svg class="shrink-0 text-pulse" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-display font-bold uppercase tracking-widest text-pulse leading-none">Last session</p>
+        <p class="text-sm font-display font-semibold text-slate-200 mt-0.5">{{ previous.top_set.weight|lbs }} lb × {{ previous.top_set.reps }}{% if previous.top_set.rpe %} <span class="text-xs text-pulse font-normal">@{{ previous.top_set.rpe|num }}</span>{% endif %}</p>
+      </div>
+      <span class="text-[10px] text-slate-500 shrink-0">{{ previous.session.started_at.strftime('%b %d') }} · tap</span>
+    </div>
+  </button>
+  <div id="prev-target-panel" class="hidden mt-1 p-4 rounded-2xl border border-pulse/30 bg-panel">
+    <div class="flex flex-wrap gap-1.5 mb-3">
+      {% for s in previous.sets %}
+        <span class="px-2.5 py-1 rounded-lg bg-raised border border-edge text-xs text-slate-400">
+          Set {{ s.set_number }}: {{ s.weight|lbs }}×{{ s.reps }}{% if s.rpe %} @{{ s.rpe|num }}{% endif %}
+        </span>
+      {% endfor %}
+    </div>
+    {% if not current_sets and session.is_active %}
+    <form action="{{ url_for('fitness.copy_previous_sets', session_id=session.id, exercise_id=exercise.id) }}" method="post">
+      <button type="submit" class="w-full py-2.5 rounded-xl border border-pulse/40 bg-pulse/5 text-xs font-display uppercase tracking-widest text-pulse">
+        Copy all sets from last session
+      </button>
+    </form>
+    {% endif %}
   </div>
-</button>
-<div id="prev-target-panel" class="hidden mb-4 p-4 rounded-2xl border border-pulse/30 bg-panel">
-  <div class="flex flex-wrap gap-1.5 mb-3">
-    {% for s in previous.sets %}
-      <span class="px-2.5 py-1 rounded-lg bg-raised border border-edge text-xs text-slate-400">
-        Set {{ s.set_number }}: {{ s.weight|lbs }}×{{ s.reps }}{% if s.rpe %} @{{ s.rpe|num }}{% endif %}
-      </span>
-    {% endfor %}
-  </div>
-  {% if not current_sets and session.is_active %}
-  <form action="{{ url_for('fitness.copy_previous_sets', session_id=session.id, exercise_id=exercise.id) }}" method="post">
-    <button type="submit" class="w-full py-2.5 rounded-xl border border-pulse/40 bg-pulse/5 text-xs font-display uppercase tracking-widest text-pulse">
-      Copy all sets from last session
-    </button>
-  </form>
-  {% endif %}
 </div>
 {% endif %}
 
-<div class="mb-4">
-  <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Sets This Session</h2>
+{# ── SECTION DIVIDER ────────────────────────────────────── #}
+<div class="flex items-center gap-3 mb-4">
+  <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">Sets Today</p>
+  <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
+  <span class="text-[10px] text-slate-600 shrink-0">{{ current_sets|length }} / session</span>
+</div>
+
+{# ── SECTION: Sets logged ───────────────────────────────── #}
+<div class="mb-5">
   <div id="sets-list" class="space-y-2">
     {% for s in current_sets %}
       <div data-set-row data-set-id="{{ s.id }}" data-completed="{{ '1' if s.completed else '0' }}"
-           class="rounded-2xl bg-panel border border-edge overflow-hidden {{ 'set-warmup' if s.is_warmup else '' }}">
-        <div class="flex items-center gap-2 p-3">
+           class="rounded-2xl bg-panel border border-edge overflow-hidden {{ 'opacity-60' if s.is_warmup else '' }}">
+        <div class="flex items-center gap-1.5 sm:gap-2 p-3 min-w-0">
           <span data-set-num class="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-raised border border-edge text-xs font-display font-bold text-slate-400">
             {% if s.is_warmup %}W{% else %}{{ s.set_number }}{% endif %}
           </span>
-          <p data-set-summary class="flex-1 font-medium text-slate-200 text-sm">
-            {{ s.weight|lbs }} <span class="text-slate-500">lb</span>
+          <p data-set-summary class="flex-1 min-w-0 font-medium text-slate-200 text-sm truncate">
+            {{ s.weight|lbs }} <span class="text-slate-500 text-xs">lb</span>
             <span class="text-slate-600 mx-1">×</span>
             {{ s.reps }}
-            {% if s.is_warmup %}<span class="ml-1 text-[10px] uppercase text-amber-600 dark:text-amber-400">WU</span>{% endif %}
+            {% if s.is_warmup %}<span class="ml-1 text-[10px] uppercase text-amber-500">WU</span>{% endif %}
             {% if s.rpe %}<span class="text-xs text-pulse ml-1">@{{ s.rpe|num }}</span>{% endif %}
           </p>
           <button type="button" data-set-toggle data-completed="{{ '1' if s.completed else '0' }}"
                   data-url="{{ url_for('fitness.toggle_set', set_id=s.id) }}"
-                  class="set-check w-10 h-10 shrink-0 grid place-items-center rounded-xl border transition-colors">
+                  class="set-check w-9 h-9 shrink-0 grid place-items-center rounded-xl border transition-colors">
             <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
           <button type="button" data-edit-toggle="{{ s.id }}"
-                  class="w-10 h-10 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-pulse">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  class="w-9 h-9 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-pulse">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
-          <button type="button" data-delete-set class="w-10 h-10 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-rose-400">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <button type="button" data-delete-set class="w-9 h-9 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-rose-400">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
           <form data-delete-form action="{{ url_for('fitness.delete_set', set_id=s.id) }}" method="post" class="hidden"></form>
         </div>
@@ -96,127 +125,66 @@
       </div>
     {% endfor %}
   </div>
-  <p id="sets-empty" class="p-4 rounded-2xl bg-panel border border-edge text-sm text-slate-500 {{ 'hidden' if current_sets else '' }}">
-    No sets yet — log your first one below.
+  <p id="sets-empty" class="p-4 rounded-2xl bg-panel border border-dashed border-edge text-sm text-slate-500 text-center {{ 'hidden' if current_sets else '' }}">
+    No sets logged yet — use the bar below to add your first set.
   </p>
 </div>
 
-<!-- Rest timer (inline, also shown when sticky bar active) -->
-<div class="mb-24 p-4 rounded-2xl bg-panel border border-edge" id="rest-timer" hidden>
-  <div class="flex items-center justify-between mb-2">
-    <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-400">Rest</p>
-    <div class="flex gap-2">
-      <button type="button" id="rest-add-30" class="text-[10px] text-slate-500 hover:text-neon">+30s</button>
-      <button type="button" id="rest-dismiss" class="text-[10px] text-slate-500 hover:text-slate-300">Dismiss</button>
+{# ── SECTION: Rest timer ────────────────────────────────── #}
+<div class="mb-5 rounded-2xl bg-panel border border-edge" id="rest-timer" hidden>
+  <div class="flex items-center justify-between px-4 py-3 border-b border-edge/60">
+    <p class="text-[10px] font-display font-semibold uppercase tracking-widest text-neon">Rest Timer</p>
+    <div class="flex gap-3">
+      <button type="button" id="rest-add-30" class="text-[10px] text-slate-500 hover:text-neon transition-colors">+30s</button>
+      <button type="button" id="rest-dismiss" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">Dismiss</button>
     </div>
   </div>
-  <p class="text-3xl font-display font-bold text-center text-neon mb-2" id="rest-display">1:30</p>
-  <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden mb-3">
-    <div id="rest-bar" class="h-full bg-gradient-to-r from-pulse to-neon transition-all duration-1000" style="width: 100%"></div>
-  </div>
-  <div class="flex gap-2 justify-center flex-wrap">
-    <button type="button" data-rest="60" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">60s</button>
-    <button type="button" data-rest="90" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-neon/10 border border-neon/30 text-neon">90s</button>
-    <button type="button" data-rest="120" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">2m</button>
-    <button type="button" data-rest="180" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">3m</button>
+  <div class="px-4 py-3">
+    <p class="text-3xl font-display font-bold text-center text-neon mb-2" id="rest-display">1:30</p>
+    <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden mb-3">
+      <div id="rest-bar" class="h-full bg-gradient-to-r from-pulse to-neon transition-all duration-1000" style="width: 100%"></div>
+    </div>
+    <div class="flex gap-2 justify-center flex-wrap">
+      <button type="button" data-rest="60" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">60s</button>
+      <button type="button" data-rest="90" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-neon/10 border border-neon/30 text-neon">90s</button>
+      <button type="button" data-rest="120" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">2m</button>
+      <button type="button" data-rest="180" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">3m</button>
+    </div>
   </div>
 </div>
 
+{# ── SECTION DIVIDER ────────────────────────────────────── #}
 {% if session.is_active %}
-<div class="mb-24"></div>
-{% else %}
-<div class="mb-24"></div>
+<div class="flex items-center gap-3 mb-4 mt-2">
+  <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">Workout</p>
+  <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
+</div>
+
+{# ── SECTION: Mid-workout exercise switcher ─────────────── #}
+{% with current_exercise=exercise %}
+{% include "fitness/_workout_switch.html" %}
+{% endwith %}
 {% endif %}
 
-{% if session.is_active %}
-<!-- Sticky log bar -->
-<div class="log-set-sticky fixed left-0 right-0 z-30 px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-3
-            bg-void/95 backdrop-blur-xl border-t border-neon/30 shadow-glow-cyan">
-  <form id="log-set-form" action="{{ url_for('fitness.add_set', session_id=session.id, exercise_id=exercise.id) }}" method="post">
-    <p id="log-set-label" class="text-[10px] font-display font-semibold uppercase tracking-widest text-neon mb-2">
-      Log Set {{ current_sets|length + 1 }}
-    </p>
-
-    <div class="grid grid-cols-2 gap-2 mb-2">
-      <div>
-        <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Weight (lb)</label>
-        <div data-stepper data-step="5" class="flex items-center gap-1">
-          <button type="button" data-step-dec class="stepper-btn shrink-0">−5</button>
-          <input type="number" name="weight" id="weight" step="2.5" min="0" required inputmode="decimal"
-                 value="{{ prefill.weight }}"
-                 class="flex-1 px-2 py-3 rounded-xl bg-panel border border-edge text-xl font-display font-bold text-center">
-          <button type="button" data-step-inc class="stepper-btn shrink-0">+5</button>
-        </div>
-        <p id="plate-hint" class="text-[10px] text-center text-slate-500 mt-1 min-h-[14px]">
-          {% if plate_hint and plate_hint.per_side %}
-            ≈ {{ plate_hint.bar_weight|lbs }} lb bar + {% for p in plate_hint.per_side %}{{ p|lbs }}×2{% if not loop.last %}, {% endif %}{% endfor %}
-          {% endif %}
-        </p>
-      </div>
-      <div>
-        <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Reps</label>
-        <div data-stepper data-step="1" class="flex items-center gap-1">
-          <button type="button" data-step-dec class="stepper-btn shrink-0">−1</button>
-          <input type="number" name="reps" id="reps" step="1" min="1" required inputmode="numeric"
-                 value="{{ prefill.reps }}"
-                 class="flex-1 px-2 py-3 rounded-xl bg-panel border border-edge text-xl font-display font-bold text-center">
-          <button type="button" data-step-inc class="stepper-btn shrink-0">+1</button>
-        </div>
-      </div>
-    </div>
-
-    <input type="hidden" name="rpe" id="rpe" value="{{ prefill.rpe }}">
-    <div id="rpe-chips" class="flex flex-wrap gap-1.5 justify-center mb-2">
-      <span class="text-[10px] text-slate-500 self-center mr-1">RPE</span>
-      {% for v in ['6','7','7.5','8','8.5','9','10'] %}
-        <button type="button" data-rpe="{{ v }}"
-                class="px-2 py-1 rounded-lg text-xs border border-edge bg-raised text-slate-400 hover:border-neon/40">{{ v }}</button>
-      {% endfor %}
-      <button type="button" data-rpe="clear" class="px-2 py-1 rounded-lg text-xs text-slate-600">—</button>
-    </div>
-
-    <div id="warmup-toggle" class="flex rounded-xl border border-edge overflow-hidden mb-2 text-xs">
-      <input type="hidden" name="is_warmup" value="0">
-      <button type="button" data-warmup="0" class="flex-1 py-2 bg-neon/15 border-neon/40 text-neon border-r border-edge">Working</button>
-      <button type="button" data-warmup="1" class="flex-1 py-2 text-slate-500">Warm-up</button>
-    </div>
-
-    <div class="flex gap-2">
-      <button type="button" id="log-same-btn"
-              class="px-4 py-3.5 rounded-xl text-xs font-display uppercase tracking-widest border border-pulse/40 text-pulse bg-pulse/5 whitespace-nowrap">
-        Same
-      </button>
-      <button type="submit"
-              class="flex-1 py-3.5 rounded-xl font-display font-semibold uppercase tracking-widest text-sm text-void
-                     bg-gradient-to-r from-pulse to-neon hover:opacity-90 active:scale-[0.98] transition-all">
-        Log Set
-      </button>
-    </div>
-  </form>
-</div>
-
-<div id="undo-toast" class="hidden fixed left-4 right-4 z-50 mx-auto max-w-md bottom-36 p-3 rounded-xl bg-panel border border-edge shadow-card flex items-center justify-between">
-  <span class="text-sm text-slate-300">Set logged</span>
-  <button type="button" id="undo-set-btn" class="text-xs font-display uppercase text-rose-400">Undo</button>
-</div>
-{% endif %}
+{# dynamic spacer — height set by JS to match log sheet #}
+<div id="log-sheet-spacer" aria-hidden="true"></div>
 
 <template id="set-row-template">
   <div data-set-row data-completed="1"
        class="rounded-2xl bg-panel border border-edge overflow-hidden">
-    <div class="flex items-center gap-2 p-3">
+    <div class="flex items-center gap-1.5 sm:gap-2 p-3 min-w-0">
       <span data-set-num class="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-raised border border-edge text-xs font-display font-bold text-slate-400">1</span>
-      <p data-set-summary class="flex-1 font-medium text-slate-200 text-sm"></p>
+      <p data-set-summary class="flex-1 min-w-0 font-medium text-slate-200 text-sm truncate"></p>
       <button type="button" data-set-toggle data-completed="1"
-              class="set-check w-10 h-10 shrink-0 grid place-items-center rounded-xl border transition-colors">
+              class="set-check w-9 h-9 shrink-0 grid place-items-center rounded-xl border transition-colors">
         <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
       </button>
       <button type="button" data-edit-toggle
-              class="w-10 h-10 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-pulse">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              class="w-9 h-9 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-pulse">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
-      <button type="button" data-delete-set class="w-10 h-10 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-rose-400">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <button type="button" data-delete-set class="w-9 h-9 shrink-0 grid place-items-center rounded-xl text-slate-600 hover:text-rose-400">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>
       <form data-delete-form method="post" class="hidden"></form>
     </div>
@@ -234,6 +202,91 @@
   </div>
 </template>
 {% endblock %}
+
+{% if session.is_active %}
+{% block overlays %}
+<script id="sheet-exercises-data" type="application/json">{{ tray_exercises|tojson if tray_exercises is defined else '[]' }}</script>
+
+<div id="log-sheet" class="log-sheet" data-current-exercise-id="{{ exercise.id }}">
+
+  <div id="sheet-handle" class="sheet-handle">
+    <div id="sheet-drag-zone" class="sheet-drag-zone" aria-label="Drag to minimise log panel">
+      <div class="sheet-drag-pill" aria-hidden="true"></div>
+    </div>
+    <div id="sheet-peek-row" class="sheet-peek-row">
+      <button type="button" id="sheet-expand-btn" class="sheet-peek-expand" aria-label="Expand log form">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+        <span id="sheet-mini-label" class="sheet-peek-set-label">Set {{ current_sets|length + 1 }}</span>
+      </button>
+      <div id="sheet-exercise-tray" class="sheet-exercise-tray" aria-label="Your workout — swipe to browse"></div>
+    </div>
+  </div>
+
+  <div id="sheet-body" class="sheet-body">
+    <form id="log-set-form" class="max-w-3xl mx-auto" action="{{ url_for('fitness.add_set', session_id=session.id, exercise_id=exercise.id) }}" method="post">
+      <p id="log-set-label" class="text-[10px] font-display font-semibold uppercase tracking-widest text-neon mb-2">
+        Log Set {{ current_sets|length + 1 }}
+      </p>
+
+      <div class="log-set-fields mb-2">
+        <div class="log-set-field">
+          <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Weight (lb)</label>
+          <div data-stepper data-step="5" class="stepper-grid">
+            <button type="button" data-step-dec class="stepper-btn">−5</button>
+            <input type="number" name="weight" id="weight" step="2.5" min="0" required inputmode="decimal"
+                   value="{{ prefill.weight }}"
+                   class="stepper-input px-1 py-3 rounded-xl bg-panel border border-edge text-lg sm:text-xl font-display font-bold text-center">
+            <button type="button" data-step-inc class="stepper-btn">+5</button>
+          </div>
+          <p id="plate-hint" class="text-[10px] text-center text-slate-500 mt-1 min-h-[14px] truncate px-0.5">
+            {% if plate_hint and plate_hint.per_side %}
+              ≈ {{ plate_hint.bar_weight|lbs }} lb bar + {% for p in plate_hint.per_side %}{{ p|lbs }}×2{% if not loop.last %}, {% endif %}{% endfor %}
+            {% endif %}
+          </p>
+        </div>
+        <div class="log-set-field">
+          <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Reps</label>
+          <div data-stepper data-step="1" class="stepper-grid">
+            <button type="button" data-step-dec class="stepper-btn">−1</button>
+            <input type="number" name="reps" id="reps" step="1" min="1" required inputmode="numeric"
+                   value="{{ prefill.reps }}"
+                   class="stepper-input px-1 py-3 rounded-xl bg-panel border border-edge text-lg sm:text-xl font-display font-bold text-center">
+            <button type="button" data-step-inc class="stepper-btn">+1</button>
+          </div>
+        </div>
+      </div>
+
+      <input type="hidden" name="rpe" id="rpe" value="{{ prefill.rpe }}">
+      <div id="rpe-chips" class="flex flex-wrap gap-1 justify-center mb-2 max-w-full overflow-hidden">
+        <span class="text-[10px] text-slate-500 self-center mr-0.5 shrink-0">RPE</span>
+        {% for v in ['6','7','7.5','8','8.5','9','10'] %}
+          <button type="button" data-rpe="{{ v }}"
+                  class="px-1.5 py-1 rounded-lg text-xs border border-edge bg-raised text-slate-400 hover:border-neon/40 shrink-0">{{ v }}</button>
+        {% endfor %}
+        <button type="button" data-rpe="clear" class="px-1.5 py-1 rounded-lg text-xs text-slate-600 shrink-0">—</button>
+      </div>
+
+      <div id="warmup-toggle" class="flex rounded-xl border border-edge overflow-hidden mb-2.5 text-xs min-w-0">
+        <input type="hidden" name="is_warmup" value="0">
+        <button type="button" data-warmup="0" class="flex-1 min-w-0 py-2.5 bg-neon/15 border-neon/40 text-neon font-semibold border-r border-edge">Working</button>
+        <button type="button" data-warmup="1" class="flex-1 min-w-0 py-2.5 text-slate-500">Warm-up</button>
+      </div>
+
+      <button type="submit"
+              class="w-full py-3.5 rounded-xl font-display font-semibold uppercase tracking-widest text-sm text-void
+                     bg-gradient-to-r from-pulse to-neon hover:opacity-90 active:scale-[0.98] transition-all">
+        Log Set {{ current_sets|length + 1 }}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div id="undo-toast" class="hidden fixed left-4 right-4 z-50 mx-auto max-w-md top-20 p-3 rounded-xl bg-panel border border-edge shadow-card flex items-center justify-between">
+  <span class="text-sm text-slate-300">Set logged ✓</span>
+  <button type="button" id="undo-set-btn" class="text-xs font-display uppercase text-rose-400">Undo</button>
+</div>
+{% endblock %}
+{% endif %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/fitness.js') }}"></script>

@@ -60,6 +60,18 @@ def migrate_schema() -> None:
             ))
             db.session.commit()
             print("  + migrated workout_sessions.skipped_exercise_ids column")
+        if "planned_exercise_ids" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE workout_sessions ADD COLUMN planned_exercise_ids TEXT DEFAULT '[]' NOT NULL"
+            ))
+            db.session.commit()
+            print("  + migrated workout_sessions.planned_exercise_ids column")
+        if "use_split_template" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE workout_sessions ADD COLUMN use_split_template BOOLEAN DEFAULT 0 NOT NULL"
+            ))
+            db.session.commit()
+            print("  + migrated workout_sessions.use_split_template column")
     if "workout_sets" in inspector.get_table_names():
         columns = {c["name"] for c in inspector.get_columns("workout_sets")}
         if "is_warmup" not in columns:
@@ -68,6 +80,40 @@ def migrate_schema() -> None:
             ))
             db.session.commit()
             print("  + migrated workout_sets.is_warmup column")
+
+
+def migrate_user1_to_indigo() -> None:
+    """Ensure Ram's accent is the royal blue theme."""
+    from app.models import User
+    user1 = User.query.filter_by(username="ram").first()
+    if user1 is not None and user1.accent != "indigo":
+        user1.accent = "indigo"
+        db.session.commit()
+        print("  + migrated user1 (ram) → accent=indigo")
+
+
+def migrate_user2_to_aylin() -> None:
+    """Rename user2 (tiki/cyan) → Aylin/pink in the live DB."""
+    from app.models import User  # local import to avoid circular at module level
+    # Attempt both the old and new usernames so this is safe to re-run
+    for old_username in ("tiki", "aylin"):
+        user2 = User.query.filter_by(username=old_username).first()
+        if user2 is None:
+            continue
+        changed = False
+        if user2.display_name != "Aylin":
+            user2.display_name = "Aylin"
+            changed = True
+        if user2.accent != "pink":
+            user2.accent = "pink"
+            changed = True
+        if user2.username == "tiki":
+            user2.username = "aylin"
+            changed = True
+        if changed:
+            db.session.commit()
+            print(f"  + migrated user2 → username=aylin, display_name=Aylin, accent=pink")
+        break
 
 
 def migrate_kg_to_lbs() -> None:
@@ -131,13 +177,13 @@ USER_SPECS = [
         "base_lifts": {"Bench Press": 135.0, "Squats": 185.0, "Pull-ups": 0.0},
     },
     {
-        "username": os.environ.get("SEED_USER2_USERNAME", "tiki"),
-        "display_name": os.environ.get("SEED_USER2_NAME", "Tiki"),
+        "username": os.environ.get("SEED_USER2_USERNAME", "aylin"),
+        "display_name": os.environ.get("SEED_USER2_NAME", "Aylin"),
         "password": os.environ.get("SEED_USER2_PASSWORD", "changeme2"),
-        "accent": "cyan",
-        "start_weight": 135.0,
-        "weight_drift": -0.1,
-        "base_lifts": {"Bench Press": 65.0, "Squats": 100.0, "Pull-ups": 0.0},
+        "accent": "pink",
+        "start_weight": 128.0,
+        "weight_drift": -0.15,
+        "base_lifts": {"Bench Press": 55.0, "Squats": 85.0, "Pull-ups": 0.0},
     },
 ]
 
@@ -227,6 +273,8 @@ def main() -> None:
         print("[seed] creating tables...")
         db.create_all()
         migrate_schema()
+        migrate_user1_to_indigo()
+        migrate_user2_to_aylin()
         migrate_kg_to_lbs()
 
         demo = os.environ.get("SEED_DEMO_DATA", "1") == "1"

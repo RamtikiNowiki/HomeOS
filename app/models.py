@@ -30,7 +30,7 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     display_name = db.Column(db.String(64), nullable=False)
-    accent = db.Column(db.String(16), nullable=False, default="indigo")  # indigo | cyan
+    accent = db.Column(db.String(16), nullable=False, default="indigo")  # indigo | cyan | pink
     password_hash = db.Column(db.String(256), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
@@ -126,7 +126,9 @@ class WorkoutSession(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name = db.Column(db.String(120), nullable=False, default="Workout")
-    workout_type = db.Column(db.String(32), nullable=True)  # push, pull, legs, etc.
+    workout_type = db.Column(db.String(32), nullable=True)  # push, pull, legs — focus for suggestions
+    use_split_template = db.Column(db.Boolean, nullable=False, default=False)  # True = full template plan
+    planned_exercise_ids = db.Column(db.Text, nullable=False, default="[]")  # user-picked queue (on-the-fly)
     routine_id = db.Column(db.Integer, db.ForeignKey("workout_routines.id"), nullable=True, index=True)
     skipped_exercise_ids = db.Column(db.Text, nullable=False, default="[]")
     started_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
@@ -196,7 +198,37 @@ class WorkoutSession(db.Model):
     def unskip_exercise(self, exercise_id: int) -> None:
         ids = self.skipped_ids()
         ids.discard(exercise_id)
-        self.skipped_exercise_ids = json.dumps(sorted(ids))
+        self.skipped_exercise_ids = json.dumps(sorted(list(ids)))
+
+    def planned_ids(self) -> list[int]:
+        try:
+            raw = json.loads(self.planned_exercise_ids or "[]")
+            return [int(x) for x in raw]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return []
+
+    def planned_exercises(self) -> list["Exercise"]:
+        ids = self.planned_ids()
+        if not ids:
+            return []
+        by_id = {
+            ex.id: ex
+            for ex in Exercise.query.filter(
+                Exercise.user_id == self.user_id,
+                Exercise.id.in_(ids),
+            ).all()
+        }
+        return [by_id[i] for i in ids if i in by_id]
+
+    def add_planned_exercise(self, exercise_id: int) -> None:
+        ids = self.planned_ids()
+        if exercise_id not in ids:
+            ids.append(exercise_id)
+        self.planned_exercise_ids = json.dumps(ids)
+
+    def remove_planned_exercise(self, exercise_id: int) -> None:
+        self.planned_exercise_ids = json.dumps([i for i in self.planned_ids() if i != exercise_id])
+        self.unskip_exercise(exercise_id)
 
     def __repr__(self):
         return f"<WorkoutSession {self.id} user={self.user_id}>"

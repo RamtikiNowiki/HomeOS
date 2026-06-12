@@ -41,6 +41,23 @@ def create_app(config_object=None) -> Flask:
     def num_filter(value):
         return format_num(value)
 
+    def _px_theme() -> str:
+        from flask_login import current_user
+        accent = getattr(current_user, "accent", None) if current_user else None
+        return "pink" if accent == "pink" else "blue"
+
+    @app.template_filter("ex_icon")
+    def ex_icon_filter(exercise):
+        """Static path to the themed pixel icon for an exercise (object or name)."""
+        from .fitness.catalog import icon_slug_for_exercise
+        name = getattr(exercise, "name", None) or str(exercise)
+        group = getattr(exercise, "muscle_group", None)
+        return f"img/px/{_px_theme()}/{icon_slug_for_exercise(name, group)}.png"
+
+    @app.context_processor
+    def inject_px_theme():
+        return {"px_theme": _px_theme()}
+
     @app.context_processor
     def inject_workout_nav():
         from flask import request, url_for

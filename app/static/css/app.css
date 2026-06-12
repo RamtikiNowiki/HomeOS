@@ -42,6 +42,116 @@ html.dark {
   --text-subtle:   #c4cedb;
 }
 
+/* ══════════════════════════════════════════════════════
+   AYLIN'S PASTEL PINK THEME  (data-accent="pink" on <html>)
+   Overrides neon → pastel pink, pulse → baby blue.
+   All existing text-neon / bg-neon / shadow-glow-cyan classes
+   automatically render pink — zero template changes needed.
+   ══════════════════════════════════════════════════════ */
+
+/* Light mode pink */
+[data-accent="pink"] {
+  --neon:          #db2777;   /* pink-600 — punchy on white */
+  --neon-dim:      #be185d;
+  --neon-rgb:      219, 39, 119;
+  --pulse:         #2563eb;   /* blue-600 — baby blue on white */
+  --pulse-dim:     #1d4ed8;
+  --pulse-rgb:     37, 99, 235;
+  --glow-cyan:     0 0 22px -2px rgba(219, 39, 119, 0.30);
+  --glow-indigo:   0 0 22px -2px rgba(37, 99, 235, 0.28);
+}
+
+/* Dark mode pink */
+html.dark[data-accent="pink"] {
+  --void:          #130c18;   /* very dark warm-purple base */
+  --panel:         #1e1329;   /* dark aubergine panel */
+  --raised:        #281a38;   /* elevated surface */
+  --edge:          #3e2456;   /* soft purple border */
+  --sidebar:       #0f0a15;   /* almost-black sidebar */
+  --neon:          #f9a8d4;   /* pink-300 — soft pastel pink */
+  --neon-dim:      #f472b6;   /* pink-400 */
+  --neon-rgb:      249, 168, 212;
+  --pulse:         #93c5fd;   /* blue-300 — baby blue */
+  --pulse-dim:     #60a5fa;   /* blue-400 */
+  --pulse-rgb:     147, 197, 253;
+  --glow-cyan:     0 0 28px -2px rgba(249, 168, 212, 0.60);
+  --glow-indigo:   0 0 28px -2px rgba(147, 197, 253, 0.50);
+  --shadow-card:   0 4px 32px -6px rgba(0, 0, 0, 0.75);
+  --text-muted:    #b8a8c9;   /* slightly warm-tinted muted */
+  --text-subtle:   #d4c8e0;
+}
+
+/* Pink-tinted sidebar gradient */
+html.dark[data-accent="pink"] .sidebar-aside {
+  background: linear-gradient(170deg, #130c18 0%, #0f0a15 100%);
+}
+
+/* ══════════════════════════════════════════════════════
+   RAM'S ROYAL BLUE THEME  (data-accent="indigo" on <html>)
+   Masculine steel-and-electric-blue palette to match the
+   blue pixel art set. Same var-override trick as pink.
+   ══════════════════════════════════════════════════════ */
+
+/* Light mode blue */
+[data-accent="indigo"] {
+  --neon:          #2563eb;   /* blue-600 — electric on white */
+  --neon-dim:      #1d4ed8;
+  --neon-rgb:      37, 99, 235;
+  --pulse:         #0284c7;   /* sky-600 — steel secondary */
+  --pulse-dim:     #0369a1;
+  --pulse-rgb:     2, 132, 199;
+  --glow-cyan:     0 0 22px -2px rgba(37, 99, 235, 0.30);
+  --glow-indigo:   0 0 22px -2px rgba(2, 132, 199, 0.28);
+}
+
+/* Dark mode blue */
+html.dark[data-accent="indigo"] {
+  --void:          #070b16;   /* near-black navy base */
+  --panel:         #0d1426;   /* deep navy panel */
+  --raised:        #142038;   /* elevated steel surface */
+  --edge:          #1f2f50;   /* navy border */
+  --sidebar:       #060912;   /* almost-black sidebar */
+  --neon:          #60a5fa;   /* blue-400 — royal electric blue */
+  --neon-dim:      #3b82f6;   /* blue-500 */
+  --neon-rgb:      96, 165, 250;
+  --pulse:         #38bdf8;   /* sky-400 — ice accent */
+  --pulse-dim:     #0ea5e9;   /* sky-500 */
+  --pulse-rgb:     56, 189, 248;
+  --glow-cyan:     0 0 28px -2px rgba(96, 165, 250, 0.55);
+  --glow-indigo:   0 0 28px -2px rgba(56, 189, 248, 0.50);
+  --shadow-card:   0 4px 32px -6px rgba(0, 0, 0, 0.78);
+  --text-muted:    #9fb1cf;   /* cool steel muted */
+  --text-subtle:   #c3d2ea;
+}
+
+/* Blue-tinted sidebar gradient */
+html.dark[data-accent="indigo"] .sidebar-aside {
+  background: linear-gradient(170deg, #070b16 0%, #060912 100%);
+}
+
+/* Blue-tinted bg-grid overrides */
+[data-accent="indigo"] .bg-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37, 99, 235, 0.08), transparent),
+    linear-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
+html.dark[data-accent="indigo"] .bg-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(96, 165, 250, 0.14), transparent),
+    linear-gradient(rgba(31, 47, 80, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 47, 80, 0.55) 1px, transparent 1px);
+}
+
+/* Pink glow shadow utility (for login page where vars aren't scoped yet) */
+.shadow-glow-pink {
+  box-shadow: 0 0 22px -2px rgba(219, 39, 119, 0.35);
+}
+html.dark .shadow-glow-pink {
+  box-shadow: 0 0 28px -2px rgba(249, 168, 212, 0.60);
+}
+
 /* ── Background grid ───────────────────────────────────── */
 .bg-grid {
   background-image:
@@ -55,6 +165,21 @@ html.dark .bg-grid {
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(129, 140, 248, 0.12), transparent),
     linear-gradient(rgba(37, 45, 69, 0.5) 1px, transparent 1px),
     linear-gradient(90deg, rgba(37, 45, 69, 0.5) 1px, transparent 1px);
+}
+
+/* Pink-tinted bg-grid overrides */
+[data-accent="pink"] .bg-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(219, 39, 119, 0.07), transparent),
+    linear-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
+html.dark[data-accent="pink"] .bg-grid {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(249, 168, 212, 0.13), transparent),
+    linear-gradient(rgba(62, 36, 86, 0.55) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(62, 36, 86, 0.55) 1px, transparent 1px);
 }
 
 /* ── Muted text — readable in both themes ───────────────── */
@@ -147,16 +272,127 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert
 /* ── Chart wrapper ─────────────────────────────────────── */
 .chart-wrap { position: relative; height: 220px; }
 
+/* ── Pixel art icons ───────────────────────────────────── */
+.pixel-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+a:hover > .pixel-icon,
+a:hover .pixel-icon,
+.exercise-row:hover .pixel-icon,
+.exercise-switch-row:hover .pixel-icon {
+  transform: scale(1.15) rotate(-3deg);
+}
+
+/* ══════════════════════════════════════════════════════
+   MICRO-ANIMATIONS — premium "alive" feel, CSS-only
+   (cheap on the Pi: transform/opacity only)
+   ══════════════════════════════════════════════════════ */
+
+/* Page entrance — main content fades up on every load */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main {
+  animation: page-enter 360ms cubic-bezier(0.21, 0.61, 0.35, 1) both;
+}
+
+/* Staggered entrance for list children — first 12 items cascade in */
+@keyframes stagger-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-in > * {
+  animation: stagger-enter 320ms cubic-bezier(0.21, 0.61, 0.35, 1) both;
+}
+.stagger-in > *:nth-child(1)  { animation-delay: 30ms; }
+.stagger-in > *:nth-child(2)  { animation-delay: 60ms; }
+.stagger-in > *:nth-child(3)  { animation-delay: 90ms; }
+.stagger-in > *:nth-child(4)  { animation-delay: 120ms; }
+.stagger-in > *:nth-child(5)  { animation-delay: 150ms; }
+.stagger-in > *:nth-child(6)  { animation-delay: 180ms; }
+.stagger-in > *:nth-child(7)  { animation-delay: 210ms; }
+.stagger-in > *:nth-child(8)  { animation-delay: 240ms; }
+.stagger-in > *:nth-child(9)  { animation-delay: 270ms; }
+.stagger-in > *:nth-child(10) { animation-delay: 300ms; }
+.stagger-in > *:nth-child(11) { animation-delay: 330ms; }
+.stagger-in > *:nth-child(12) { animation-delay: 360ms; }
+
+/* Card hover lift — anchor cards float up slightly */
+a.bg-panel,
+.exercise-row {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+a.bg-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35), var(--glow-cyan);
+}
+.exercise-row:hover {
+  border-color: color-mix(in srgb, var(--neon) 35%, transparent);
+}
+
+/* Universal button press — tactile squish */
+button:not(:disabled):active,
+a[class*="rounded-xl"]:active,
+a[class*="rounded-2xl"]:active {
+  transform: scale(0.97);
+  transition: transform 80ms ease;
+}
+
+/* Progress bar shimmer — slow light sweep across filled bars */
+@keyframes bar-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+.bg-gradient-to-r.from-pulse.to-neon {
+  background-image: linear-gradient(
+    90deg,
+    var(--pulse) 0%,
+    var(--neon) 45%,
+    color-mix(in srgb, var(--neon) 65%, white) 50%,
+    var(--neon) 55%,
+    var(--pulse) 100%
+  );
+  background-size: 200% 100%;
+  animation: bar-shimmer 6s linear infinite;
+}
+
+/* Respect reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  main,
+  .stagger-in > *,
+  .pixel-icon,
+  .bg-gradient-to-r.from-pulse.to-neon {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── Stepper buttons (weight/rep ±) ────────────────────── */
+.stepper-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.25rem;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+}
+.stepper-input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
 .stepper-btn {
-  min-width: 2.75rem;
-  padding: 0.5rem 0.35rem;
+  min-width: 2.25rem;
+  padding: 0.5rem 0.25rem;
   border-radius: 0.75rem;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-family: "Chakra Petch", sans-serif;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   background: var(--raised);
   border: 1px solid var(--edge);
   color: var(--text-muted);
@@ -165,8 +401,241 @@ html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert
 .stepper-btn:hover { color: var(--neon); border-color: rgba(var(--neon-rgb), 0.4); }
 .stepper-btn:active { transform: scale(0.94); }
 
-/* ── Sticky log bar (mobile exercise page) ─────────────── */
-.log-set-sticky { bottom: 0; }
+/* ══════════════════════════════════════════════════════
+   COLLAPSIBLE LOG SHEET  (mobile bottom sheet)
+   ══════════════════════════════════════════════════════ */
+.log-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* sits above the mobile nav pill */
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  width: auto;
+  max-width: 100vw;
+  margin: 0;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--void) 97%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border-top: 1px solid color-mix(in srgb, var(--neon) 22%, transparent);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -10px 40px -6px rgba(0, 0, 0, 0.45),
+              0 -1px 0 color-mix(in srgb, var(--neon) 6%, transparent);
+  transition: transform 400ms cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+/* Desktop: align with main content area (sidebar offset), collapse enabled */
+@media (min-width: 1024px) {
+  .log-sheet {
+    left: 16rem;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    border-top: 1px solid color-mix(in srgb, var(--neon) 18%, transparent);
+  }
+  .log-sheet.is-collapsed {
+    box-shadow: 0 -4px 24px -4px rgba(0, 0, 0, 0.35);
+  }
+  .sheet-body {
+    padding: 0 1.5rem 0.5rem;
+    max-width: 48rem;
+    margin: 0 auto;
+  }
+  .sheet-body .stepper-input {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .sheet-body #rpe-chips {
+    margin-bottom: 0.375rem;
+  }
+  .sheet-body #warmup-toggle {
+    margin-bottom: 0.375rem;
+  }
+  .sheet-body [type="submit"] {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+}
+
+/* ── Drag zone (pill only — tray keeps horizontal scroll) ── */
+.sheet-handle {
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sheet-drag-zone {
+  padding: 8px 0 4px;
+  cursor: grab;
+  touch-action: none;
+}
+.sheet-drag-zone:active { cursor: grabbing; }
+
+/* The pill indicator at the very top */
+.sheet-drag-pill {
+  width: 36px;
+  height: 4px;
+  background: var(--edge);
+  border-radius: 2px;
+  margin: 0 auto;
+  transition: background 0.2s, width 0.2s;
+}
+.log-sheet.is-collapsed .sheet-drag-pill {
+  width: 48px;
+  background: color-mix(in srgb, var(--neon) 55%, transparent);
+}
+
+/* ── Collapsed peek strip ── */
+.sheet-peek-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+  overflow: visible;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 350ms cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 250ms ease;
+}
+.log-sheet.is-collapsed .sheet-peek-row {
+  max-height: 72px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Expand CTA inside the peek strip */
+.sheet-peek-expand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--neon) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--neon) 32%, transparent);
+  color: var(--neon);
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.12s;
+  cursor: pointer;
+}
+.sheet-peek-expand:active { transform: scale(0.93); }
+
+.sheet-peek-set-label {
+  font-size: 0.6rem;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* ── Exercise quick-switch tray ── */
+.sheet-exercise-tray {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  padding: 2px 2px 4px;
+  mask-image: linear-gradient(to right, transparent 0, black 8px, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 8px, black calc(100% - 16px), transparent 100%);
+}
+.sheet-exercise-tray::-webkit-scrollbar { display: none; }
+
+.sheet-tray-chip {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: block;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.75rem;
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  color: var(--text-subtle);
+  font-size: 0.7rem;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s, color 0.15s, opacity 0.15s;
+}
+.sheet-tray-chip:active { transform: scale(0.94); }
+.sheet-tray-chip.is-priority {
+  background: color-mix(in srgb, var(--neon) 12%, transparent);
+  border-color: color-mix(in srgb, var(--neon) 45%, transparent);
+  color: var(--neon);
+}
+.sheet-tray-chip.is-current {
+  background: color-mix(in srgb, var(--pulse) 12%, transparent);
+  border-color: color-mix(in srgb, var(--pulse) 45%, transparent);
+  color: var(--pulse);
+  pointer-events: none;
+}
+.sheet-tray-chip.is-done {
+  opacity: 0.45;
+}
+
+/* Dynamic bottom spacer for page content */
+#log-sheet-spacer {
+  height: 0;
+  transition: height 350ms cubic-bezier(0.32, 0.72, 0, 1);
+  pointer-events: none;
+}
+
+/* ── Sheet body (the actual form) ── */
+.sheet-body {
+  padding: 0 0.75rem 0.625rem;
+  min-width: 0;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .sheet-body { padding: 0 1rem 0.75rem; }
+}
+
+/* Fade the form out while sheet is mid-drag or collapsed */
+.log-sheet.is-collapsed .sheet-body {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.log-sheet:not(.is-collapsed) .sheet-body {
+  opacity: 1;
+  transition: opacity 300ms ease 80ms;
+}
+
+/* ── Form field grid ── */
+.log-set-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  min-width: 0;
+}
+.log-set-field { min-width: 0; }
+
+@media (max-width: 380px) {
+  .stepper-btn {
+    min-width: 1.85rem;
+    padding: 0.45rem 0.15rem;
+    font-size: 0.55rem;
+  }
+  .sheet-body .stepper-input {
+    font-size: 1.125rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════
    SIDEBAR NAV  (desktop, lg+)
