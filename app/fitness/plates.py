@@ -1,7 +1,9 @@
-"""Barbell plate calculator — metric (kg) plates."""
+"""Barbell plate calculator — US standard (lb) plates."""
 
-DEFAULT_PLATES = (25, 20, 15, 10, 5, 2.5, 1.25)
-DEFAULT_BAR = 20.0
+from ..units import DEFAULT_BAR_LB, DEFAULT_PLATES_LB, SMALLEST_PLATE_LB
+
+DEFAULT_PLATES = DEFAULT_PLATES_LB
+DEFAULT_BAR = DEFAULT_BAR_LB
 
 
 def calculate_plates(
@@ -15,7 +17,7 @@ def calculate_plates(
 
     if target_weight < bar_weight:
         return {
-            "error": f"Target must be at least bar weight ({bar_weight:g} kg).",
+            "error": f"Target must be at least bar weight ({bar_weight:g} lb).",
             "per_side": [],
             "achieved": bar_weight,
         }
@@ -24,8 +26,7 @@ def calculate_plates(
     if per_side_target < 0:
         per_side_target = 0
 
-    # Round to nearest 1.25 kg (smallest standard plate)
-    per_side_target = round(per_side_target / 1.25) * 1.25
+    per_side_target = round(per_side_target / SMALLEST_PLATE_LB) * SMALLEST_PLATE_LB
 
     remaining = per_side_target
     per_side: list[float] = []

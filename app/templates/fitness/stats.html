@@ -17,8 +17,8 @@
   </div>
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">Weekly Vol</p>
-    <p class="text-2xl font-display font-bold text-neon">{{ weekly_volume|kg }}</p>
-    <p class="text-[10px] text-slate-500">kg lifted</p>
+    <p class="text-2xl font-display font-bold text-neon">{{ weekly_volume|lbs }}</p>
+    <p class="text-[10px] text-slate-500">lb lifted</p>
   </div>
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">All Time</p>
@@ -42,8 +42,8 @@
         <p class="text-xs text-slate-500">{{ item.exercise.muscle_group }}</p>
       </div>
       <div class="text-right shrink-0">
-        <p class="text-sm font-display font-bold text-neon">{{ item.pr.weight|kg }} kg × {{ item.pr.reps }}</p>
-        <p class="text-[10px] text-slate-500">est. 1RM {{ item.pr.estimated_1rm|kg }} kg · {{ item.pr.date.strftime('%b %d') }}</p>
+        <p class="text-sm font-display font-bold text-neon">{{ item.pr.weight|lbs }} lb × {{ item.pr.reps }}</p>
+        <p class="text-[10px] text-slate-500">est. 1RM {{ item.pr.estimated_1rm|lbs }} lb · {{ item.pr.date.strftime('%b %d') }}</p>
       </div>
     </div>
   {% endfor %}

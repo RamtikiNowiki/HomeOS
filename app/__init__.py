@@ -5,6 +5,7 @@ from flask import Flask
 
 from config import get_config
 from .extensions import db, login_manager
+from .units import format_num, format_weight
 
 
 def create_app(config_object=None) -> Flask:
@@ -27,12 +28,18 @@ def create_app(config_object=None) -> Flask:
     app.register_blueprint(home_assistant_bp, url_prefix="/home")
     app.register_blueprint(creality_k2_bp, url_prefix="/printer")
 
+    @app.template_filter("lbs")
+    def lbs_filter(value):
+        return format_weight(value)
+
     @app.template_filter("kg")
     def kg_filter(value):
-        """Render weights without trailing .0 (87.5 -> '87.5', 100.0 -> '100')."""
-        if value is None:
-            return "—"
-        return f"{value:g}"
+        """Backward-compatible alias — values are stored in lb."""
+        return format_weight(value)
+
+    @app.template_filter("num")
+    def num_filter(value):
+        return format_num(value)
 
     @app.context_processor
     def inject_workout_nav():

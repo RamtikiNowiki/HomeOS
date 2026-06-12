@@ -7,19 +7,19 @@
 
 <div class="mb-6">
   <h1 class="text-2xl font-display font-bold">Plate Calculator</h1>
-  <p class="text-xs text-slate-500 mt-0.5">Metric plates · per side</p>
+  <p class="text-xs text-slate-500 mt-0.5">US standard plates · per side</p>
 </div>
 
 <form method="post" class="p-4 rounded-2xl bg-panel border border-edge mb-6">
   <div class="grid grid-cols-2 gap-3 mb-4">
     <div>
-      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Target (kg)</label>
-      <input type="number" name="target" step="1.25" min="0" required value="{{ target }}"
+      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Target (lb)</label>
+      <input type="number" name="target" step="2.5" min="0" required value="{{ target }}"
              class="w-full px-4 py-4 rounded-xl bg-raised border border-edge text-xl font-display font-bold text-center">
     </div>
     <div>
-      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Bar (kg)</label>
-      <input type="number" name="bar" step="0.5" min="0" value="{{ bar }}"
+      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Bar (lb)</label>
+      <input type="number" name="bar" step="5" min="0" value="{{ bar }}"
              class="w-full px-4 py-4 rounded-xl bg-raised border border-edge text-xl font-display font-bold text-center">
     </div>
   </div>
@@ -35,18 +35,18 @@
       <div class="flex flex-wrap justify-center gap-2 my-4">
         {% for plate in result.per_side %}
           <span class="w-14 h-14 rounded-full grid place-items-center font-display font-bold text-sm
-                       {{ 'bg-slate-800 text-white' if plate >= 20 else 'bg-raised border border-edge text-slate-100' }}">
-            {{ plate|kg }}
+                       {{ 'bg-slate-800 text-white' if plate >= 25 else 'bg-raised border border-edge text-slate-100' }}">
+            {{ plate|lbs }}
           </span>
         {% else %}
           <span class="text-slate-500 text-sm">Bar only</span>
         {% endfor %}
       </div>
-      <p class="text-3xl font-display font-bold text-neon">{{ result.achieved|kg }} kg</p>
-      <p class="text-xs text-slate-500 mt-1">bar {{ result.bar_weight|kg }} kg + {{ result.per_side|length * 2 }} plates</p>
+      <p class="text-3xl font-display font-bold text-neon">{{ result.achieved|lbs }} lb</p>
+      <p class="text-xs text-slate-500 mt-1">bar {{ result.bar_weight|lbs }} lb + {{ result.per_side|length * 2 }} plates</p>
     </div>
   {% endif %}
 {% endif %}
 
-<p class="text-xs text-slate-500 text-center">Standard plates: 25 · 20 · 15 · 10 · 5 · 2.5 · 1.25 kg</p>
+<p class="text-xs text-slate-500 text-center">Standard plates: 45 · 35 · 25 · 10 · 5 · 2.5 lb</p>
 {% endblock %}

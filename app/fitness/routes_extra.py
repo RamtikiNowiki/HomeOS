@@ -11,7 +11,7 @@ from ..models import Exercise, WorkoutRoutine, WorkoutRoutineExercise, WorkoutSe
 from . import fitness_bp
 from .catalog import WORKOUT_SPLITS, get_split
 from .charts_data import exercise_progress_chart, pr_timeline, weekly_volume_chart, weight_chart
-from .plates import calculate_plates
+from .plates import calculate_plates, DEFAULT_BAR
 from .routes import _get_own_exercise, _get_own_session
 from .service import (
     DAY_NAMES,
@@ -19,7 +19,11 @@ from .service import (
     create_routine_from_session,
     find_last_session_to_repeat,
     get_program_week,
+    parse_plan_rows_from_form,
+    plan_entries_from_routine,
+    plan_entries_from_split,
     repeat_session,
+    save_routine_plan,
     start_session_from_program_day,
     start_session_from_routine,
 )
@@ -98,6 +102,102 @@ def copy_previous_sets(session_id: int, exercise_id: int):
 # Custom routines
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Workout planner — customize templates, plan in advance, preview before start
+# ---------------------------------------------------------------------------
+
+@fitness_bp.route("/plan", methods=["GET", "POST"])
+@login_required
+def plan():
+    split_id = request.args.get("split", "").strip() or request.form.get("split_key", "").strip() or None
+    routine_id = request.args.get("routine_id", type=int) or request.form.get("routine_id", type=int)
+    split = get_split(split_id) if split_id else None
+
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+        name = request.form.get("name", "").strip()
+        split_key = request.form.get("split_key", "").strip() or None
+        rid = request.form.get("routine_id", type=int)
+        rows = parse_plan_rows_from_form(request.form)
+
+        if not name:
+            flash("Give your workout a name.", "error")
+            return redirect(request.referrer or url_for("fitness.plan"))
+        if not rows:
+            flash("Add at least one exercise to the plan.", "error")
+            return redirect(request.referrer or url_for("fitness.plan"))
+
+        try:
+            routine = save_routine_plan(
+                current_user.id,
+                name,
+                rows,
+                split_key=split_key,
+                routine_id=rid,
+            )
+        except ValueError:
+            abort(404)
+
+        if action == "start":
+            existing = WorkoutSession.query.filter_by(
+                user_id=current_user.id, finished_at=None
+            ).first()
+            if existing:
+                flash("Finish or discard your current workout before starting a new one.", "error")
+                return redirect(url_for("fitness.session_detail", session_id=existing.id))
+            session = start_session_from_routine(current_user.id, routine)
+            flash(f"Started “{routine.name}” — log when you're ready.", "success")
+            return redirect(url_for("fitness.session_detail", session_id=session.id))
+
+        flash(f"Saved workout plan “{routine.name}”.", "success")
+        return redirect(url_for("fitness.routine_detail", routine_id=routine.id))
+
+    # GET — load plan editor
+    entries = []
+    name = ""
+    editing_routine = None
+    if routine_id:
+        editing_routine = _get_own_routine(routine_id)
+        name = editing_routine.name
+        split_id = editing_routine.split_key
+        split = get_split(split_id) if split_id else None
+        entries = plan_entries_from_routine(editing_routine)
+    elif split_id and split:
+        name = split["name"]
+        entries = plan_entries_from_split(current_user.id, split_id)
+    else:
+        name = request.args.get("name", "").strip()
+
+    exercises = (
+        Exercise.query.filter_by(user_id=current_user.id)
+        .order_by(Exercise.muscle_group, Exercise.name)
+        .all()
+    )
+    return render_template(
+        "fitness/plan.html",
+        name=name,
+        entries=entries,
+        exercises=exercises,
+        split_id=split_id,
+        split=split,
+        routine=editing_routine,
+        splits=WORKOUT_SPLITS,
+    )
+
+
+@fitness_bp.route("/routines/<int:routine_id>")
+@login_required
+def routine_detail(routine_id: int):
+    """Preview a saved workout plan before starting."""
+    routine = _get_own_routine(routine_id)
+    entries = routine.ordered_exercises()
+    return render_template(
+        "fitness/routine_detail.html",
+        routine=routine,
+        entries=entries,
+    )
+
+
 @fitness_bp.route("/routines")
 @login_required
 def routines():
@@ -128,121 +228,32 @@ def routine_new():
         if not name:
             flash("Routine name is required.", "error")
             return redirect(url_for("fitness.routine_new"))
+        params = {"routine_id": None}
+        if split_key:
+            return redirect(url_for("fitness.plan", split=split_key, name=name))
         routine = WorkoutRoutine(
             user_id=current_user.id, name=name, split_key=split_key
         )
         db.session.add(routine)
         db.session.commit()
-        flash(f"Created “{name}” — add exercises.", "success")
-        return redirect(url_for("fitness.routine_edit", routine_id=routine.id))
+        return redirect(url_for("fitness.plan", routine_id=routine.id))
 
-    exercises = (
-        Exercise.query.filter_by(user_id=current_user.id)
-        .order_by(Exercise.muscle_group, Exercise.name)
-        .all()
-    )
-    return render_template(
-        "fitness/routine_edit.html",
-        routine=None,
-        entries=[],
-        exercises=exercises,
-        splits=WORKOUT_SPLITS,
-    )
+    return redirect(url_for("fitness.plan"))
 
 
 @fitness_bp.route("/routines/<int:routine_id>/edit", methods=["GET", "POST"])
 @login_required
 def routine_edit(routine_id: int):
-    routine = _get_own_routine(routine_id)
-    if request.method == "POST":
-        routine.name = request.form.get("name", "").strip() or routine.name
-        split_key = request.form.get("split_key", "").strip() or None
-        routine.split_key = split_key
-        db.session.query(WorkoutRoutineExercise).filter_by(routine_id=routine.id).delete()
-        exercise_ids = request.form.getlist("exercise_id")
-        for i, eid in enumerate(exercise_ids, start=1):
-            if not eid:
-                continue
-            ex = db.session.get(Exercise, int(eid))
-            if ex is None or ex.user_id != current_user.id:
-                continue
-            sets = request.form.get(f"target_sets_{eid}", "3")
-            reps = request.form.get(f"target_reps_{eid}", "").strip() or None
-            db.session.add(
-                WorkoutRoutineExercise(
-                    routine_id=routine.id,
-                    exercise_id=ex.id,
-                    sort_order=i,
-                    target_sets=int(sets) if sets.isdigit() else 3,
-                    target_reps=reps,
-                )
-            )
-        db.session.commit()
-        flash("Routine saved.", "success")
-        return redirect(url_for("fitness.routines"))
-
-    exercises = (
-        Exercise.query.filter_by(user_id=current_user.id)
-        .order_by(Exercise.muscle_group, Exercise.name)
-        .all()
-    )
-    return render_template(
-        "fitness/routine_edit.html",
-        routine=routine,
-        entries=routine.ordered_exercises(),
-        exercises=exercises,
-        splits=WORKOUT_SPLITS,
-    )
+    """Legacy URL — planner is the editor now."""
+    _get_own_routine(routine_id)
+    return redirect(url_for("fitness.plan", routine_id=routine_id))
 
 
 @fitness_bp.route("/routines/quick", methods=["POST"])
 @login_required
 def routine_quick_create():
-    """Create a routine from selected exercises and optionally start it."""
-    name = request.form.get("name", "").strip()
-    exercise_ids = [int(x) for x in request.form.getlist("exercise_id") if x.isdigit()]
-    start_now = request.form.get("start") == "1"
-
-    if not name:
-        flash("Routine name is required.", "error")
-        return redirect(request.form.get("next") or url_for("fitness.index"))
-
-    routine = WorkoutRoutine(user_id=current_user.id, name=name)
-    db.session.add(routine)
-    db.session.flush()
-
-    order = 0
-    seen = set()
-    for eid in exercise_ids:
-        if eid in seen:
-            continue
-        ex = db.session.get(Exercise, eid)
-        if ex is None or ex.user_id != current_user.id:
-            continue
-        seen.add(eid)
-        order += 1
-        db.session.add(
-            WorkoutRoutineExercise(
-                routine_id=routine.id,
-                exercise_id=ex.id,
-                sort_order=order,
-                target_sets=3,
-            )
-        )
-
-    if order == 0:
-        db.session.rollback()
-        flash("Pick at least one exercise for the routine.", "error")
-        return redirect(request.form.get("next") or url_for("fitness.index"))
-
-    db.session.commit()
-    flash(f"Saved routine “{name}”.", "success")
-
-    if start_now:
-        session = start_session_from_routine(current_user.id, routine)
-        return redirect(url_for("fitness.session_detail", session_id=session.id))
-
-    return redirect(url_for("fitness.routines"))
+    """Redirect inline quick-create to the full planner."""
+    return redirect(url_for("fitness.plan"))
 
 
 @fitness_bp.route("/routines/<int:routine_id>/delete", methods=["POST"])
@@ -379,11 +390,11 @@ def charts():
 @login_required
 def plates():
     result = None
-    target = bar = 20.0
+    target = bar = DEFAULT_BAR
     if request.method == "POST":
         try:
             target = float(request.form.get("target", 0))
-            bar = float(request.form.get("bar", 20))
+            bar = float(request.form.get("bar", DEFAULT_BAR))
         except ValueError:
             flash("Enter valid numbers.", "error")
         else:

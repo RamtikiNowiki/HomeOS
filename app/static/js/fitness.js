@@ -197,8 +197,8 @@ function createRestTimer(opts) {
 }
 
 /** Build a set row DOM node from JSON */
-function buildSetRow(data, kgFormat) {
-  const fmt = kgFormat || ((n) => n);
+function buildSetRow(data, weightFormat) {
+  const fmt = weightFormat || ((n) => n);
   const tpl = document.getElementById("set-row-template");
   if (!tpl) return null;
   const row = tpl.content.cloneNode(true).querySelector("[data-set-row]");
@@ -210,7 +210,7 @@ function buildSetRow(data, kgFormat) {
   num.textContent = data.is_warmup ? "W" : data.set_number;
 
   const summary = row.querySelector("[data-set-summary]");
-  summary.innerHTML = `${fmt(data.weight)} <span class="text-slate-500 text-sm">kg</span>
+  summary.innerHTML = `${fmt(data.weight)} <span class="text-slate-500 text-sm">lb</span>
     <span class="text-slate-600 mx-1">×</span>
     ${data.reps} <span class="text-slate-500 text-sm">reps</span>
     ${data.is_warmup ? '<span class="ml-2 text-[10px] uppercase text-amber-600 dark:text-amber-400">warm-up</span>' : ""}
@@ -266,10 +266,10 @@ function initAjaxSetLogging(formId) {
       return;
     }
     // Client-side plate calc (mirrors server)
-    const bar = 20;
-    let perSide = Math.round(((w - bar) / 2) / 1.25) * 1.25;
+    const bar = 45;
+    let perSide = Math.round(((w - bar) / 2) / 2.5) * 2.5;
     if (perSide < 0) perSide = 0;
-    const plates = [25, 20, 15, 10, 5, 2.5, 1.25];
+    const plates = [45, 35, 25, 10, 5, 2.5];
     const side = [];
     let rem = perSide;
     for (const p of plates) {
@@ -279,7 +279,7 @@ function initAjaxSetLogging(formId) {
       }
     }
     plateHint.textContent = side.length
-      ? `≈ 20 kg bar + ${side.map((p) => p + "×2").join(", ")}`
+      ? `≈ 45 lb bar + ${side.map((p) => p + "×2").join(", ")}`
       : "Bar only";
   };
 
@@ -447,6 +447,7 @@ function initConfirmForms(selector) {
 document.addEventListener("DOMContentLoaded", () => {
   initExerciseSearch("exercise-search", "#exercise-list", ".exercise-row");
   initExerciseSearch("session-exercise-search", "#session-exercise-list", ".exercise-row");
+  initExerciseSearch("switch-exercise-search", "#switch-exercise-list", ".exercise-switch-row");
   initExerciseSearch("routine-exercise-search", "#routine-pick-list", ".routine-pick-row");
   initHiddenSplits();
   initConfirmForms("[data-confirm]");

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ routine.name }}{% endblock %}
+
+{% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Train', url_for('fitness.index')), ('My plans', url_for('fitness.routines')), (routine.name, none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-display font-bold">{{ routine.name }}</h1>
+  <p class="text-xs text-slate-500 mt-0.5">
+    {{ entries|length }} exercise{{ 's' if entries|length != 1 }} · saved plan — start when you're ready
+    {% if routine.split_key %} · from {{ routine.split_key|replace('_',' ')|title }} template{% endif %}
+  </p>
+</div>
+
+<div class="mb-6 p-4 rounded-2xl border border-neon/30 bg-neon/5">
+  <p class="text-xs font-display font-bold uppercase tracking-widest text-neon mb-3">Workout preview</p>
+  {% if entries %}
+    <ol class="space-y-2">
+      {% for entry in entries %}
+        <li class="flex items-center gap-3 p-3 rounded-xl bg-panel border border-edge">
+          <span class="w-7 h-7 shrink-0 grid place-items-center rounded-lg bg-raised text-xs font-display font-bold text-slate-400">{{ loop.index }}</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-slate-100">{{ entry.exercise.name }}</p>
+            <p class="text-xs text-slate-500">{{ entry.exercise.muscle_group }}</p>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-sm font-display font-bold text-neon">{{ entry.target_sets }} sets</p>
+            {% if entry.target_reps %}<p class="text-[10px] text-slate-500">{{ entry.target_reps }} reps</p>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    <p class="text-sm text-slate-500 italic">No exercises yet — edit this plan to add some.</p>
+  {% endif %}
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+  <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post">
+    <button type="submit"
+            class="w-full py-4 rounded-xl font-display font-semibold uppercase tracking-widest text-sm text-void
+                   bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all"
+            {{ 'disabled' if not entries else '' }}>
+      Start This Workout
+    </button>
+  </form>
+  <a href="{{ url_for('fitness.plan', routine_id=routine.id) }}"
+     class="w-full py-4 rounded-xl text-center font-display font-semibold uppercase tracking-widest text-sm
+            bg-pulse/15 border border-pulse/40 text-pulse hover:bg-pulse/25 transition-colors">
+    Edit Plan
+  </a>
+</div>
+
+<div class="flex gap-3">
+  <a href="{{ url_for('fitness.routines') }}"
+     class="flex-1 py-3 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-raised border border-edge text-slate-400">
+    All Plans
+  </a>
+  <form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" class="flex-1"
+        data-confirm="Delete “{{ routine.name }}”?">
+    <button type="submit"
+            class="w-full py-3 rounded-xl text-xs font-display uppercase tracking-widest text-rose-400 border border-rose-500/30 hover:bg-rose-500/10">
+      Delete
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
+{% endblock %}

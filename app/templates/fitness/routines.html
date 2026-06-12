@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}My Routines{% endblock %}
+{% block title %}My Workout Plans{% endblock %}
 {% block content %}
 {% include "fitness/_subnav.html" %}
-{% set crumbs = [('Tools', url_for('fitness.tools')), ('Routines', none)] %}
+{% set crumbs = [('Tools', url_for('fitness.tools')), ('My plans', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
 <div class="mb-6 flex items-start justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-display font-bold">My Routines</h1>
-    <p class="text-xs text-slate-500 mt-0.5">Saved workout templates — one tap to start</p>
+    <h1 class="text-2xl font-display font-bold">My Workout Plans</h1>
+    <p class="text-xs text-slate-500 mt-0.5">Saved in advance — preview, edit, start when ready</p>
   </div>
-  <a href="{{ url_for('fitness.routine_new') }}"
+  <a href="{{ url_for('fitness.plan') }}"
      class="shrink-0 px-4 py-2.5 rounded-xl font-display text-xs uppercase tracking-widest text-white
-            bg-gradient-to-r from-pulse to-neon shadow-glow-cyan">+ New</a>
+            bg-gradient-to-r from-pulse to-neon shadow-glow-cyan">+ Plan New</a>
 </div>
 
 {% if routines %}
@@ -20,11 +20,11 @@
   {% for routine in routines %}
     <div class="p-4 rounded-2xl bg-panel border border-edge">
       <div class="flex items-start justify-between gap-3 mb-2">
-        <div class="min-w-0">
-          <p class="font-semibold text-slate-100">{{ routine.name }}</p>
+        <a href="{{ url_for('fitness.routine_detail', routine_id=routine.id) }}" class="min-w-0 flex-1">
+          <p class="font-semibold text-slate-100 hover:text-neon transition-colors">{{ routine.name }}</p>
           <p class="text-xs text-slate-500">{{ routine.entries.count() }} exercises{% if routine.split_key %} · {{ routine.split_key|replace('_',' ')|title }}{% endif %}</p>
-        </div>
-        <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post" class="shrink-0">
+        </a>
+        <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post">
           <button type="submit" class="px-4 py-2 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start</button>
         </form>
       </div>
@@ -34,8 +34,12 @@
         {% endfor %}
       </div>
       <div class="flex items-center gap-2">
-        <a href="{{ url_for('fitness.routine_edit', routine_id=routine.id) }}"
-           class="flex-1 py-2 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-raised border border-edge text-slate-400 hover:border-pulse/50">
+        <a href="{{ url_for('fitness.routine_detail', routine_id=routine.id) }}"
+           class="flex-1 py-2 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-raised border border-edge text-slate-400 hover:border-neon/50">
+          Preview
+        </a>
+        <a href="{{ url_for('fitness.plan', routine_id=routine.id) }}"
+           class="flex-1 py-2 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-pulse/10 border border-pulse/30 text-pulse">
           Edit
         </a>
         <form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" class="flex-1"
@@ -50,8 +54,25 @@
   {% endfor %}
 </div>
 {% else %}
-<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500 mb-8">No saved routines yet. Build one on the Workout tab or finish a session and save it.</p>
+<div class="p-8 rounded-2xl bg-panel border border-edge text-center mb-8">
+  <p class="text-sm text-slate-400 mb-4">No saved plans yet. Build one from a template or from scratch — save it for tomorrow without logging anything.</p>
+  <a href="{{ url_for('fitness.plan') }}"
+     class="inline-flex px-6 py-3 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void bg-gradient-to-r from-pulse to-neon">
+    Plan a Workout
+  </a>
+</div>
 {% endif %}
+
+<h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Start from Template</h2>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-8">
+  {% for split_id, split in splits.items() %}
+    <a href="{{ url_for('fitness.plan', split=split_id) }}"
+       class="text-left p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
+      <p class="font-display font-bold text-sm text-slate-100">{{ split.name }}</p>
+      <p class="text-[10px] text-slate-500 mt-0.5">{{ split.exercises|length }} exercises · customize</p>
+    </a>
+  {% endfor %}
+</div>
 
 <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Repeat Last Session</h2>
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">

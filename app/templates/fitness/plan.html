@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{% if routine %}Edit {{ routine.name }}{% elif split %}Plan {{ split.name }}{% else %}Plan Workout{% endif %}{% endblock %}
+
+{% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Train', url_for('fitness.index')), ('Plan workout', none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
+<div class="mb-4">
+  <h1 class="text-2xl font-display font-bold">
+    {% if routine %}Edit Workout Plan{% elif split %}Customize {{ split.name }}{% else %}Plan a Workout{% endif %}
+  </h1>
+  <p class="text-xs text-slate-500 mt-0.5">
+    Add or remove exercises, preview your plan, then save for later or start when ready — no logging required.
+  </p>
+</div>
+
+{# Live preview #}
+<div id="plan-preview" class="mb-6 p-4 rounded-2xl border border-neon/30 bg-neon/5">
+  <div class="flex items-center justify-between mb-2">
+    <p class="text-xs font-display font-bold uppercase tracking-widest text-neon">Preview</p>
+    <p id="plan-preview-count" class="text-xs text-slate-400">0 exercises</p>
+  </div>
+  <ol id="plan-preview-list" class="space-y-1.5 text-sm text-slate-300 min-h-[2rem]">
+    <li id="plan-preview-empty" class="text-slate-500 text-sm italic">Add exercises below to see your plan</li>
+  </ol>
+</div>
+
+<form method="post" id="plan-form">
+  {% if routine %}<input type="hidden" name="routine_id" value="{{ routine.id }}">{% endif %}
+  {% if split_id %}<input type="hidden" name="split_key" value="{{ split_id }}">{% endif %}
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge mb-4">
+    <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Workout name</label>
+    <input type="text" name="name" id="plan-name" required value="{{ name }}"
+           placeholder="e.g. Tomorrow Push, My Leg Day"
+           class="w-full px-4 py-3 rounded-xl bg-raised border border-edge text-slate-100">
+    {% if split %}
+      <p class="text-[10px] text-slate-500 mt-2">Based on template: {{ split.name }} — customize freely</p>
+    {% endif %}
+  </div>
+
+  <p class="text-xs font-display uppercase tracking-widest text-slate-400 mb-2">Exercises (in order)</p>
+  <div id="plan-rows" class="space-y-2 mb-4">
+    {% for entry in entries %}
+      <div class="plan-row flex flex-wrap items-center gap-2 p-3 rounded-xl bg-panel border border-edge">
+        <div class="flex flex-col gap-0.5 shrink-0">
+          <button type="button" class="move-up w-8 h-7 rounded-lg bg-raised border border-edge text-slate-500 text-xs" title="Move up">↑</button>
+          <button type="button" class="move-down w-8 h-7 rounded-lg bg-raised border border-edge text-slate-500 text-xs" title="Move down">↓</button>
+        </div>
+        <select name="exercise_id" required class="plan-exercise-select flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-raised border border-edge text-sm">
+          {% for ex in exercises %}
+            <option value="{{ ex.id }}" data-name="{{ ex.name }}" data-group="{{ ex.muscle_group }}"
+                    {{ 'selected' if ex.id == entry.exercise_id }}>{{ ex.name }} ({{ ex.muscle_group }})</option>
+          {% endfor %}
+        </select>
+        <input type="number" data-sets name="target_sets_{{ entry.exercise_id }}" value="{{ entry.target_sets }}" min="1" max="10"
+               class="w-16 px-2 py-2 rounded-lg bg-raised border border-edge text-sm text-center" title="Target sets">
+        <input type="text" data-reps name="target_reps_{{ entry.exercise_id }}" value="{{ entry.target_reps }}" placeholder="8-10"
+               class="w-20 px-2 py-2 rounded-lg bg-raised border border-edge text-sm text-center" title="Target reps">
+        <button type="button" class="remove-row px-3 py-2 text-rose-500 text-xs shrink-0">Remove</button>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge mb-4 space-y-3">
+    <p class="text-xs font-display uppercase tracking-widest text-slate-500">Add exercise</p>
+    <div class="relative">
+      <input type="search" id="plan-add-search" placeholder="Search your library…" autocomplete="off"
+             class="w-full px-4 py-3 pl-10 rounded-xl bg-void border border-edge text-sm">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+    <div class="flex gap-2">
+      <select id="plan-add-select" class="flex-1 px-3 py-2.5 rounded-xl bg-raised border border-edge text-sm">
+        {% for ex in exercises %}
+          <option value="{{ ex.id }}" data-name="{{ ex.name }}" data-group="{{ ex.muscle_group }}">{{ ex.name }} ({{ ex.muscle_group }})</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="plan-add-btn"
+              class="px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-pulse/15 border border-pulse/40 text-pulse shrink-0">
+        + Add
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+    <button type="submit" name="action" value="save"
+            class="py-4 rounded-xl font-display font-semibold uppercase tracking-widest text-sm
+                   bg-pulse/15 border border-pulse/40 text-pulse hover:bg-pulse/25 transition-colors">
+      Save for Later
+    </button>
+    <button type="submit" name="action" value="start"
+            class="py-4 rounded-xl font-display font-semibold uppercase tracking-widest text-sm text-void
+                   bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all">
+      Start Workout Now
+    </button>
+  </div>
+  <p class="text-center text-[10px] text-slate-500 mb-6">
+    Save for later = plan tomorrow's session without logging anything today.
+  </p>
+</form>
+
+<template id="plan-row-template">
+  <div class="plan-row flex flex-wrap items-center gap-2 p-3 rounded-xl bg-panel border border-edge">
+    <div class="flex flex-col gap-0.5 shrink-0">
+      <button type="button" class="move-up w-8 h-7 rounded-lg bg-raised border border-edge text-slate-500 text-xs">↑</button>
+      <button type="button" class="move-down w-8 h-7 rounded-lg bg-raised border border-edge text-slate-500 text-xs">↓</button>
+    </div>
+    <select name="exercise_id" required class="plan-exercise-select flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-raised border border-edge text-sm">
+      {% for ex in exercises %}
+        <option value="{{ ex.id }}" data-name="{{ ex.name }}" data-group="{{ ex.muscle_group }}">{{ ex.name }} ({{ ex.muscle_group }})</option>
+      {% endfor %}
+    </select>
+    <input type="number" data-sets value="3" min="1" max="10" class="w-16 px-2 py-2 rounded-lg bg-raised border border-edge text-sm text-center">
+    <input type="text" data-reps placeholder="8-10" class="w-20 px-2 py-2 rounded-lg bg-raised border border-edge text-sm text-center">
+    <button type="button" class="remove-row px-3 py-2 text-rose-500 text-xs shrink-0">Remove</button>
+  </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
+<script src="{{ url_for('static', filename='js/plan.js') }}"></script>
+{% endblock %}

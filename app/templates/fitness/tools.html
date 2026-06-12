@@ -11,8 +11,12 @@
 
 <div class="grid grid-cols-2 gap-3 mb-6">
   <a href="{{ url_for('fitness.routines') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
-    <p class="font-display font-bold text-sm text-slate-100">My Routines</p>
-    <p class="text-[10px] text-slate-500 mt-1">Saved custom workouts</p>
+    <p class="font-display font-bold text-sm text-slate-100">My Workout Plans</p>
+    <p class="text-[10px] text-slate-500 mt-1">Saved routines — plan in advance</p>
+  </a>
+  <a href="{{ url_for('fitness.plan') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Plan Workout</p>
+    <p class="text-[10px] text-slate-500 mt-1">Build & preview before starting</p>
   </a>
   <a href="{{ url_for('fitness.program') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
     <p class="font-display font-bold text-sm text-slate-100">Weekly Program</p>

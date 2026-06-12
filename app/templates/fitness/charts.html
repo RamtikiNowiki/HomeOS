@@ -16,7 +16,7 @@
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
-    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Weekly Volume (kg)</h2>
+    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Weekly Volume (lb)</h2>
     <div class="chart-wrap"><canvas id="volume-chart"></canvas></div>
   </div>
 
@@ -44,7 +44,7 @@
               <p class="font-medium text-slate-100">{{ ev.exercise }}</p>
               <p class="text-xs text-slate-500">{{ ev.date.strftime('%b %d, %Y') }}</p>
             </div>
-            <p class="font-display font-bold text-neon">{{ ev.weight|kg }} kg × {{ ev.reps }} <span class="text-xs text-slate-500 font-body">(1RM {{ ev.estimated_1rm|kg }})</span></p>
+            <p class="font-display font-bold text-neon">{{ ev.weight|lbs }} lb × {{ ev.reps }} <span class="text-xs text-slate-500 font-body">(1RM {{ ev.estimated_1rm|lbs }})</span></p>
           </div>
         {% endfor %}
       </div>

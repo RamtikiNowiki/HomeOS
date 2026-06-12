@@ -23,7 +23,16 @@ from app import create_app  # noqa: E402
 from app.extensions import db  # noqa: E402
 from app.models import Exercise, User, WeightLog, WorkoutSession, WorkoutSet, utcnow  # noqa: E402
 from app.fitness.service import import_starter_library  # noqa: E402
+from app.units import KG_TO_LB  # noqa: E402
 from sqlalchemy import inspect, text  # noqa: E402
+
+DEFAULT_EXERCISES = [
+    ("Bench Press", "Chest"),
+    ("Squats", "Legs"),
+    ("Pull-ups", "Back"),
+    ("Overhead Press", "Shoulders"),
+    ("Deadlift", "Back"),
+]
 
 
 def migrate_schema() -> None:
@@ -45,6 +54,12 @@ def migrate_schema() -> None:
             db.session.execute(text("ALTER TABLE workout_sessions ADD COLUMN routine_id INTEGER"))
             db.session.commit()
             print("  + migrated workout_sessions.routine_id column")
+        if "skipped_exercise_ids" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE workout_sessions ADD COLUMN skipped_exercise_ids TEXT DEFAULT '[]' NOT NULL"
+            ))
+            db.session.commit()
+            print("  + migrated workout_sessions.skipped_exercise_ids column")
     if "workout_sets" in inspector.get_table_names():
         columns = {c["name"] for c in inspector.get_columns("workout_sets")}
         if "is_warmup" not in columns:
@@ -54,14 +69,49 @@ def migrate_schema() -> None:
             db.session.commit()
             print("  + migrated workout_sets.is_warmup column")
 
-# Legacy names kept for demo seed compatibility
-DEFAULT_EXERCISES = [
-    ("Bench Press", "Chest"),
-    ("Squats", "Legs"),
-    ("Pull-ups", "Back"),
-    ("Overhead Press", "Shoulders"),
-    ("Deadlift", "Back"),
-]
+
+def migrate_kg_to_lbs() -> None:
+    """One-time conversion of legacy kg values to lb."""
+    inspector = inspect(db.engine)
+    tables = inspector.get_table_names()
+    if "workout_sets" not in tables:
+        return
+
+    if "app_meta" not in tables:
+        db.session.execute(
+            text("CREATE TABLE app_meta (key VARCHAR(64) PRIMARY KEY, value VARCHAR(64))")
+        )
+        db.session.commit()
+
+    row = db.session.execute(
+        text("SELECT value FROM app_meta WHERE key = 'weight_unit'")
+    ).fetchone()
+    if row is not None and row[0] == "lbs":
+        return
+
+    db.session.execute(
+        text(f"UPDATE workout_sets SET weight = ROUND(weight * {KG_TO_LB}, 2) WHERE weight > 0")
+    )
+    if "weight_logs" in tables:
+        db.session.execute(
+            text(f"UPDATE weight_logs SET weight = ROUND(weight * {KG_TO_LB}, 1)")
+        )
+
+    dialect = db.engine.dialect.name
+    if dialect == "sqlite":
+        db.session.execute(
+            text("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('weight_unit', 'lbs')")
+        )
+    else:
+        db.session.execute(
+            text(
+                "INSERT INTO app_meta (key, value) VALUES ('weight_unit', 'lbs') "
+                "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
+            )
+        )
+    db.session.commit()
+    print("  + migrated stored weights from kg to lb")
+
 
 # Map legacy demo names to catalog names
 _DEMO_LIFT_MAP = {
@@ -76,18 +126,18 @@ USER_SPECS = [
         "display_name": os.environ.get("SEED_USER1_NAME", "Ram"),
         "password": os.environ.get("SEED_USER1_PASSWORD", "changeme1"),
         "accent": "indigo",
-        "start_weight": 82.0,
-        "weight_drift": -0.15,   # trending down slightly
-        "base_lifts": {"Bench Press": 60.0, "Squats": 80.0, "Pull-ups": 0.0},
+        "start_weight": 181.0,
+        "weight_drift": -0.3,
+        "base_lifts": {"Bench Press": 135.0, "Squats": 185.0, "Pull-ups": 0.0},
     },
     {
         "username": os.environ.get("SEED_USER2_USERNAME", "tiki"),
         "display_name": os.environ.get("SEED_USER2_NAME", "Tiki"),
         "password": os.environ.get("SEED_USER2_PASSWORD", "changeme2"),
         "accent": "cyan",
-        "start_weight": 61.0,
-        "weight_drift": -0.05,
-        "base_lifts": {"Bench Press": 27.5, "Squats": 45.0, "Pull-ups": 0.0},
+        "start_weight": 135.0,
+        "weight_drift": -0.1,
+        "base_lifts": {"Bench Press": 65.0, "Squats": 100.0, "Pull-ups": 0.0},
     },
 ]
 
@@ -121,8 +171,8 @@ def seed_demo_history(user: User, spec: dict, exercises: dict[str, Exercise]) ->
 
     # --- Workout sessions: 8 and 3 days ago, with small progression ---
     session_plans = [
-        ("Push Day", 8, 0.0),    # days ago, progression offset (kg)
-        ("Full Body", 3, 2.5),
+        ("Push Day", 8, 0.0),    # days ago, progression offset (lb)
+        ("Full Body", 3, 5.0),
     ]
     for session_name, days_ago, progression in session_plans:
         started = utcnow() - timedelta(days=days_ago, hours=2)
@@ -177,6 +227,7 @@ def main() -> None:
         print("[seed] creating tables...")
         db.create_all()
         migrate_schema()
+        migrate_kg_to_lbs()
 
         demo = os.environ.get("SEED_DEMO_DATA", "1") == "1"
         for spec in USER_SPECS:

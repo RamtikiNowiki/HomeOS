@@ -55,7 +55,7 @@
           <p class="font-semibold text-slate-100">{{ exercise.name }}</p>
           <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>
           {% if pr %}
-            <p class="text-xs text-pulse mt-1">PR: {{ pr.weight|kg }} kg × {{ pr.reps }} (est. 1RM {{ pr.estimated_1rm|kg }} kg)</p>
+            <p class="text-xs text-pulse mt-1">PR: {{ pr.weight|lbs }} lb × {{ pr.reps }} (est. 1RM {{ pr.estimated_1rm|lbs }} lb)</p>
           {% endif %}
         </div>
         <button type="button" data-edit-exercise="{{ exercise.id }}"

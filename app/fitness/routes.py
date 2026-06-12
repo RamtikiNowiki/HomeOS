@@ -7,6 +7,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models import Exercise, WeightLog, WorkoutSession, WorkoutSet, WorkoutRoutine, WorkoutRoutineExercise, UserProgramDay, utcnow
 from .plates import calculate_plates
+from ..units import DEFAULT_BAR_LB
 from . import fitness_bp
 from .catalog import (
     EXERCISE_CATALOG,
@@ -258,7 +259,7 @@ def finish_session(session_id: int):
     db.session.commit()
     mins = session.duration_minutes
     flash(
-        f"Session logged: {session.total_sets} sets, {session.total_volume:g} kg volume"
+        f"Session logged: {session.total_sets} sets, {session.total_volume:g} lb volume"
         + (f", {mins} min." if mins else "."),
         "success",
     )
@@ -297,6 +298,46 @@ def discard_session(session_id: int):
     return redirect(url_for("fitness.index"))
 
 
+def _redirect_after_plan_change(session_id: int):
+    """Return to the page the user came from, or the session view."""
+    target = request.form.get("next") or request.referrer
+    if target:
+        return redirect(target)
+    return redirect(url_for("fitness.session_detail", session_id=session_id))
+
+
+@fitness_bp.route("/session/<int:session_id>/skip/<int:exercise_id>", methods=["POST"])
+@login_required
+def skip_plan_exercise(session_id: int, exercise_id: int):
+    """Skip a planned exercise for this session only (machine taken, swapping order, etc.)."""
+    session = _get_own_session(session_id)
+    if not session.is_active:
+        flash("This session is already finished.", "error")
+        return redirect(url_for("fitness.session_detail", session_id=session.id))
+    exercise = _get_own_exercise(exercise_id)
+    if session.sets_for_exercise(exercise.id):
+        flash(f"“{exercise.name}” already has logged sets — finish or delete them first.", "error")
+        return _redirect_after_plan_change(session.id)
+    session.skip_exercise(exercise.id)
+    db.session.commit()
+    flash(f"Skipped “{exercise.name}” for this workout.", "success")
+    return _redirect_after_plan_change(session.id)
+
+
+@fitness_bp.route("/session/<int:session_id>/unskip/<int:exercise_id>", methods=["POST"])
+@login_required
+def unskip_plan_exercise(session_id: int, exercise_id: int):
+    session = _get_own_session(session_id)
+    if not session.is_active:
+        flash("This session is already finished.", "error")
+        return redirect(url_for("fitness.session_detail", session_id=session.id))
+    exercise = _get_own_exercise(exercise_id)
+    session.unskip_exercise(exercise.id)
+    db.session.commit()
+    flash(f"“{exercise.name}” restored to your plan.", "success")
+    return _redirect_after_plan_change(session.id)
+
+
 @fitness_bp.route("/session/<int:session_id>/delete", methods=["POST"])
 @login_required
 def delete_session(session_id: int):
@@ -333,7 +374,15 @@ def log_exercise(session_id: int, exercise_id: int):
         prefill = {"weight": "", "reps": "", "rpe": ""}
 
     nxt = next_exercise_in_session(session, exercise.id, session.workout_type)
-    plate_hint = calculate_plates(float(prefill["weight"]), 20.0) if prefill.get("weight") else None
+    plate_hint = calculate_plates(float(prefill["weight"]), DEFAULT_BAR_LB) if prefill.get("weight") else None
+    progress = session_plan_progress(session)
+    all_exercises = (
+        Exercise.query.filter_by(user_id=current_user.id)
+        .order_by(Exercise.muscle_group, Exercise.name)
+        .all()
+    )
+    plan_ids = {ex.id for ex in progress["recommended"]} if progress else set()
+    extra_exercises = [ex for ex in all_exercises if ex.id not in plan_ids]
 
     return render_template(
         "fitness/log_exercise.html",
@@ -344,6 +393,8 @@ def log_exercise(session_id: int, exercise_id: int):
         prefill=prefill,
         next_exercise=nxt,
         plate_hint=plate_hint,
+        progress=progress,
+        extra_exercises=extra_exercises,
     )
 
 
@@ -389,7 +440,7 @@ def add_set(session_id: int, exercise_id: int):
     db.session.commit()
 
     if _wants_json():
-        plate_hint = calculate_plates(weight, 20.0)
+        plate_hint = calculate_plates(weight, DEFAULT_BAR_LB)
         return jsonify({
             "set": _set_to_json(workout_set),
             "set_count": len(session.sets_for_exercise(exercise.id)),

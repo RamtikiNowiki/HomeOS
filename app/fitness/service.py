@@ -78,32 +78,40 @@ def split_progress(session, split_id: str) -> dict:
     """How far through a split template the current session is."""
     recommended = resolve_split_exercises(session.user_id, split_id)
     performed_ids = {ex.id for ex in session.exercises_performed}
+    skipped_ids = session.skipped_ids()
     done = [ex for ex in recommended if ex.id in performed_ids]
-    remaining = [ex for ex in recommended if ex.id not in performed_ids]
+    skipped = [ex for ex in recommended if ex.id in skipped_ids and ex.id not in performed_ids]
+    remaining = [
+        ex for ex in recommended
+        if ex.id not in performed_ids and ex.id not in skipped_ids
+    ]
     return {
         "recommended": recommended,
         "done": done,
+        "skipped": skipped,
         "remaining": remaining,
         "total": len(recommended),
         "done_count": len(done),
+        "skipped_count": len(skipped),
     }
 
 
 def next_exercise_in_session(session, current_exercise_id: int, split_id: str | None) -> Exercise | None:
     """Next exercise to log: routine order, then split, then library."""
     performed_ids = {ex.id for ex in session.exercises_performed}
+    skipped_ids = session.skipped_ids()
     performed_ids.add(current_exercise_id)
 
     if session.routine_id:
         routine = db.session.get(WorkoutRoutine, session.routine_id)
         if routine:
             for entry in routine.ordered_exercises():
-                if entry.exercise_id not in performed_ids:
+                if entry.exercise_id not in performed_ids and entry.exercise_id not in skipped_ids:
                     return entry.exercise
 
     if split_id:
         for ex in resolve_split_exercises(session.user_id, split_id):
-            if ex.id not in performed_ids:
+            if ex.id not in performed_ids and ex.id not in skipped_ids:
                 return ex
 
     all_exercises = (
@@ -112,7 +120,7 @@ def next_exercise_in_session(session, current_exercise_id: int, split_id: str | 
         .all()
     )
     for ex in all_exercises:
-        if ex.id not in performed_ids:
+        if ex.id not in performed_ids and ex.id not in skipped_ids:
             return ex
     return None
 
@@ -120,15 +128,22 @@ def next_exercise_in_session(session, current_exercise_id: int, split_id: str | 
 def routine_progress(session, routine: WorkoutRoutine) -> dict:
     ordered = [e.exercise for e in routine.ordered_exercises()]
     performed_ids = {ex.id for ex in session.exercises_performed}
+    skipped_ids = session.skipped_ids()
     done = [ex for ex in ordered if ex.id in performed_ids]
-    remaining = [ex for ex in ordered if ex.id not in performed_ids]
+    skipped = [ex for ex in ordered if ex.id in skipped_ids and ex.id not in performed_ids]
+    remaining = [
+        ex for ex in ordered
+        if ex.id not in performed_ids and ex.id not in skipped_ids
+    ]
     return {
         "recommended": ordered,
         "entries": routine.ordered_exercises(),
         "done": done,
+        "skipped": skipped,
         "remaining": remaining,
         "total": len(ordered),
         "done_count": len(done),
+        "skipped_count": len(skipped),
     }
 
 
@@ -291,4 +306,93 @@ def suggest_next_exercise(session: WorkoutSession) -> Exercise | None:
     if progress and progress.get("recommended"):
         return progress["recommended"][0]
     return None
+
+
+def plan_entries_from_split(user_id: int, split_id: str) -> list[dict]:
+    """Load split template exercises into plan rows (imports missing catalog entries)."""
+    import_split_exercises(user_id, split_id)
+    exercises = resolve_split_exercises(user_id, split_id)
+    return [
+        {
+            "exercise_id": ex.id,
+            "exercise": ex,
+            "target_sets": 3,
+            "target_reps": "",
+        }
+        for ex in exercises
+    ]
+
+
+def plan_entries_from_routine(routine: WorkoutRoutine) -> list[dict]:
+    return [
+        {
+            "exercise_id": entry.exercise_id,
+            "exercise": entry.exercise,
+            "target_sets": entry.target_sets,
+            "target_reps": entry.target_reps or "",
+        }
+        for entry in routine.ordered_exercises()
+    ]
+
+
+def save_routine_plan(
+    user_id: int,
+    name: str,
+    rows: list[dict],
+    *,
+    split_key: str | None = None,
+    routine_id: int | None = None,
+) -> WorkoutRoutine:
+    """Create or update a saved workout plan (no session, no logging required)."""
+    if routine_id:
+        routine = db.session.get(WorkoutRoutine, routine_id)
+        if routine is None or routine.user_id != user_id:
+            raise ValueError("Routine not found")
+    else:
+        routine = WorkoutRoutine(user_id=user_id, name=name, split_key=split_key)
+        db.session.add(routine)
+        db.session.flush()
+
+    routine.name = name
+    routine.split_key = split_key
+    db.session.query(WorkoutRoutineExercise).filter_by(routine_id=routine.id).delete()
+
+    for i, row in enumerate(rows, start=1):
+        ex_id = row["exercise_id"]
+        ex = db.session.get(Exercise, ex_id)
+        if ex is None or ex.user_id != user_id:
+            continue
+        db.session.add(
+            WorkoutRoutineExercise(
+                routine_id=routine.id,
+                exercise_id=ex.id,
+                sort_order=i,
+                target_sets=int(row.get("target_sets") or 3),
+                target_reps=(row.get("target_reps") or "").strip() or None,
+            )
+        )
+
+    db.session.commit()
+    return routine
+
+
+def parse_plan_rows_from_form(form) -> list[dict]:
+    """Parse exercise_id list + per-row sets/reps from the plan form."""
+    rows = []
+    seen = set()
+    for eid_raw in form.getlist("exercise_id"):
+        if not eid_raw or not str(eid_raw).isdigit():
+            continue
+        eid = int(eid_raw)
+        if eid in seen:
+            continue
+        seen.add(eid)
+        sets_raw = form.get(f"target_sets_{eid}", "3")
+        reps = form.get(f"target_reps_{eid}", "").strip()
+        rows.append({
+            "exercise_id": eid,
+            "target_sets": int(sets_raw) if str(sets_raw).isdigit() else 3,
+            "target_reps": reps,
+        })
+    return rows
 

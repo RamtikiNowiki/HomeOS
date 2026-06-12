@@ -5,6 +5,7 @@ share data. The workout schema is built for progressive overload:
 
     Exercise -> WorkoutSession -> WorkoutSet (reps / weight / completed)
 """
+import json
 from datetime import datetime, date, timezone
 
 from flask_login import UserMixin
@@ -127,6 +128,7 @@ class WorkoutSession(db.Model):
     name = db.Column(db.String(120), nullable=False, default="Workout")
     workout_type = db.Column(db.String(32), nullable=True)  # push, pull, legs, etc.
     routine_id = db.Column(db.Integer, db.ForeignKey("workout_routines.id"), nullable=True, index=True)
+    skipped_exercise_ids = db.Column(db.Text, nullable=False, default="[]")
     started_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
     finished_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -179,6 +181,23 @@ class WorkoutSession(db.Model):
             .all()
         )
 
+    def skipped_ids(self) -> set[int]:
+        try:
+            raw = json.loads(self.skipped_exercise_ids or "[]")
+            return {int(x) for x in raw}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return set()
+
+    def skip_exercise(self, exercise_id: int) -> None:
+        ids = self.skipped_ids()
+        ids.add(exercise_id)
+        self.skipped_exercise_ids = json.dumps(sorted(ids))
+
+    def unskip_exercise(self, exercise_id: int) -> None:
+        ids = self.skipped_ids()
+        ids.discard(exercise_id)
+        self.skipped_exercise_ids = json.dumps(sorted(ids))
+
     def __repr__(self):
         return f"<WorkoutSession {self.id} user={self.user_id}>"
 
@@ -191,7 +210,7 @@ class WorkoutSet(db.Model):
     exercise_id = db.Column(db.Integer, db.ForeignKey("exercises.id"), nullable=False, index=True)
     set_number = db.Column(db.Integer, nullable=False, default=1)
     reps = db.Column(db.Integer, nullable=False)
-    weight = db.Column(db.Float, nullable=False)  # kg
+    weight = db.Column(db.Float, nullable=False)  # lb
     rpe = db.Column(db.Float, nullable=True)  # rate of perceived exertion (6–10)
     is_warmup = db.Column(db.Boolean, nullable=False, default=False)
     completed = db.Column(db.Boolean, nullable=False, default=False)
@@ -211,7 +230,7 @@ class WorkoutSet(db.Model):
         return round(self.weight * (1 + self.reps / 30), 1)
 
     def __repr__(self):
-        return f"<WorkoutSet {self.weight}kg x {self.reps}>"
+        return f"<WorkoutSet {self.weight}lb x {self.reps}>"
 
 
 class WeightLog(db.Model):
@@ -220,13 +239,13 @@ class WeightLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     log_date = db.Column(db.Date, nullable=False, default=date.today, index=True)
-    weight = db.Column(db.Float, nullable=False)        # kg — ready for VeSync sync
+    weight = db.Column(db.Float, nullable=False)        # lb — VeSync may need conversion on sync
     body_fat = db.Column(db.Float, nullable=True)       # percent
 
     __table_args__ = (db.UniqueConstraint("user_id", "log_date", name="uq_weight_user_date"),)
 
     def __repr__(self):
-        return f"<WeightLog {self.log_date} {self.weight}kg>"
+        return f"<WeightLog {self.log_date} {self.weight}lb>"
 
 
 class WorkoutRoutine(db.Model):

@@ -1,39 +1,50 @@
-/* ---- Home OS & Fitness Hub — shared client behaviors ---- */
+/* ========================================================
+   Home OS & Fitness Hub — shared client behaviors
+   ======================================================== */
 
-/** Dark / light theme toggle */
-(function initTheme() {
-  const btn = document.getElementById("theme-toggle");
+/** ── Theme toggle ──────────────────────────────────────
+ *  Works for both the mobile header and the desktop sidebar.
+ *  All theme-toggle buttons carry data-action="toggle-theme".
+ */
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-action='toggle-theme']");
   if (!btn) return;
-  btn.addEventListener("click", () => {
-    const dark = document.documentElement.classList.toggle("dark");
-    localStorage.setItem("theme", dark ? "dark" : "light");
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", dark ? "#12141c" : "#f4f6fb");
-  });
-})();
+  const dark = document.documentElement.classList.toggle("dark");
+  localStorage.setItem("theme", dark ? "dark" : "light");
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? "#0b0d16" : "#f4f6fb");
+});
 
-/** PWA service worker */
+/** ── Form confirm dialogs ──────────────────────────────
+ *  <form data-confirm="Are you sure?"> intercepts submit.
+ */
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("form[data-confirm]");
+  if (!form) return;
+  if (!confirm(form.dataset.confirm)) event.preventDefault();
+});
+
+/** ── PWA service worker ──────────────────────────────── */
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/static/sw.js").catch(() => {});
 }
 
+/** ── JSON POST helper ────────────────────────────────── */
 async function postJSON(url) {
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Accept": "application/json" },
+    headers: { Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   return res.json();
 }
 
-/**
- * Workout set "completed" checkboxes.
- * Markup: <button data-set-toggle data-url="..."> with data-completed="1|0".
+/** ── Workout set completed toggle ──────────────────────
+ *  <button data-set-toggle data-url="..." data-completed="1|0">
  */
 document.addEventListener("click", async (event) => {
   const toggle = event.target.closest("[data-set-toggle]");
   if (!toggle) return;
-
   toggle.disabled = true;
   try {
     const data = await postJSON(toggle.dataset.url);
@@ -47,14 +58,12 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-/**
- * Smart home light toggles.
- * Markup: <button data-light-toggle data-url="..."> with data-state="on|off".
+/** ── Smart home light toggles ──────────────────────────
+ *  <button data-light-toggle data-url="..." data-state="on|off">
  */
 document.addEventListener("click", async (event) => {
   const toggle = event.target.closest("[data-light-toggle]");
   if (!toggle) return;
-
   toggle.disabled = true;
   try {
     const data = await postJSON(toggle.dataset.url);
@@ -69,8 +78,8 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-/**
- * 3D printer panel auto-refresh (every 15s, only on the printer page).
+/** ── 3D printer auto-refresh ───────────────────────────
+ *  Only runs on the printer panel page.
  */
 const printerPanel = document.querySelector("[data-printer-panel]");
 if (printerPanel) {

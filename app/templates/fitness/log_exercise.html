@@ -15,12 +15,16 @@
   <p class="text-xs text-slate-500 mt-0.5">{{ exercise.muscle_group }}</p>
 </div>
 
+{% with current_exercise=exercise %}
+{% include "fitness/_workout_switch.html" %}
+{% endwith %}
+
 {% if previous %}
 <button type="button" id="prev-target-toggle" aria-expanded="false"
         class="w-full mb-4 p-4 rounded-2xl border border-pulse/40 bg-pulse/5 text-left hover:bg-pulse/10 transition-colors">
   <div class="flex items-center gap-2">
     <p class="text-xs font-display font-bold uppercase tracking-widest text-pulse">Previous target</p>
-    <span class="font-display font-bold text-slate-100 ml-2">{{ previous.top_set.weight|kg }} kg × {{ previous.top_set.reps }}</span>
+    <span class="font-display font-bold text-slate-100 ml-2">{{ previous.top_set.weight|lbs }} lb × {{ previous.top_set.reps }}</span>
     <span class="ml-auto text-[10px] text-slate-500">{{ previous.session.started_at.strftime('%b %d') }} · tap to expand</span>
   </div>
 </button>
@@ -28,7 +32,7 @@
   <div class="flex flex-wrap gap-1.5 mb-3">
     {% for s in previous.sets %}
       <span class="px-2.5 py-1 rounded-lg bg-raised border border-edge text-xs text-slate-400">
-        Set {{ s.set_number }}: {{ s.weight|kg }}×{{ s.reps }}{% if s.rpe %} @{{ s.rpe|kg }}{% endif %}
+        Set {{ s.set_number }}: {{ s.weight|lbs }}×{{ s.reps }}{% if s.rpe %} @{{ s.rpe|num }}{% endif %}
       </span>
     {% endfor %}
   </div>
@@ -53,11 +57,11 @@
             {% if s.is_warmup %}W{% else %}{{ s.set_number }}{% endif %}
           </span>
           <p data-set-summary class="flex-1 font-medium text-slate-200 text-sm">
-            {{ s.weight|kg }} <span class="text-slate-500">kg</span>
+            {{ s.weight|lbs }} <span class="text-slate-500">lb</span>
             <span class="text-slate-600 mx-1">×</span>
             {{ s.reps }}
             {% if s.is_warmup %}<span class="ml-1 text-[10px] uppercase text-amber-600 dark:text-amber-400">WU</span>{% endif %}
-            {% if s.rpe %}<span class="text-xs text-pulse ml-1">@{{ s.rpe|kg }}</span>{% endif %}
+            {% if s.rpe %}<span class="text-xs text-pulse ml-1">@{{ s.rpe|num }}</span>{% endif %}
           </p>
           <button type="button" data-set-toggle data-completed="{{ '1' if s.completed else '0' }}"
                   data-url="{{ url_for('fitness.toggle_set', set_id=s.id) }}"
@@ -118,15 +122,8 @@
   </div>
 </div>
 
-{% if next_exercise %}
-<a href="{{ url_for('fitness.log_exercise', session_id=session.id, exercise_id=next_exercise.id) }}"
-   class="mb-24 flex items-center justify-between p-4 rounded-2xl bg-panel border border-pulse/40 hover:border-pulse/60 transition-colors">
-  <div>
-    <p class="text-[10px] font-display uppercase tracking-widest text-pulse">Up Next</p>
-    <p class="font-semibold text-slate-100 mt-0.5">{{ next_exercise.name }}</p>
-  </div>
-  <span class="text-xs font-display uppercase tracking-widest text-pulse">Go →</span>
-</a>
+{% if session.is_active %}
+<div class="mb-24"></div>
 {% else %}
 <div class="mb-24"></div>
 {% endif %}
@@ -142,17 +139,17 @@
 
     <div class="grid grid-cols-2 gap-2 mb-2">
       <div>
-        <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Weight (kg)</label>
-        <div data-stepper data-step="2.5" class="flex items-center gap-1">
-          <button type="button" data-step-dec class="stepper-btn shrink-0">−2.5</button>
-          <input type="number" name="weight" id="weight" step="0.5" min="0" required inputmode="decimal"
+        <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Weight (lb)</label>
+        <div data-stepper data-step="5" class="flex items-center gap-1">
+          <button type="button" data-step-dec class="stepper-btn shrink-0">−5</button>
+          <input type="number" name="weight" id="weight" step="2.5" min="0" required inputmode="decimal"
                  value="{{ prefill.weight }}"
                  class="flex-1 px-2 py-3 rounded-xl bg-panel border border-edge text-xl font-display font-bold text-center">
-          <button type="button" data-step-inc class="stepper-btn shrink-0">+2.5</button>
+          <button type="button" data-step-inc class="stepper-btn shrink-0">+5</button>
         </div>
         <p id="plate-hint" class="text-[10px] text-center text-slate-500 mt-1 min-h-[14px]">
           {% if plate_hint and plate_hint.per_side %}
-            ≈ {{ plate_hint.bar_weight|kg }} bar + {% for p in plate_hint.per_side %}{{ p|kg }}×2{% if not loop.last %}, {% endif %}{% endfor %}
+            ≈ {{ plate_hint.bar_weight|lbs }} lb bar + {% for p in plate_hint.per_side %}{{ p|lbs }}×2{% if not loop.last %}, {% endif %}{% endfor %}
           {% endif %}
         </p>
       </div>

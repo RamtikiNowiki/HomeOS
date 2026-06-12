@@ -29,7 +29,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-slate-100 truncate">{{ session.name }}</p>
-          <p class="text-xs text-slate-500">{{ session.total_sets }} sets · {{ session.total_volume|kg }} kg volume</p>
+          <p class="text-xs text-slate-500">{{ session.total_sets }} sets · {{ session.total_volume|lbs }} lb volume</p>
         </div>
         <a href="{{ url_for('fitness.session_detail', session_id=session.id) }}"
            class="shrink-0 text-[10px] font-display uppercase tracking-widest text-neon hover:underline"
@@ -47,7 +47,7 @@
               {% for s in session.sets_for_exercise(exercise.id) %}
                 <span class="px-2.5 py-1 rounded-lg text-xs font-medium border
                              {{ 'bg-neon/10 border-neon/30 text-neon' if s.completed else 'bg-raised border-edge text-slate-500' }}">
-                  {{ s.weight|kg }}×{{ s.reps }}{% if s.rpe %}@{{ s.rpe|kg }}{% endif %}
+                  {{ s.weight|lbs }}×{{ s.reps }}{% if s.rpe %}@{{ s.rpe|num }}{% endif %}
                 </span>
               {% endfor %}
             </div>
