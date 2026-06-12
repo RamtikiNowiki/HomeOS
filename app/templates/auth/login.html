@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Sign In{% endblock %}
+{% block body_class %}bg-boost{% endblock %}
 
 {% block content %}
 <div class="min-h-[85vh] flex flex-col items-center justify-center">
@@ -30,7 +31,7 @@
                 data-accent="{{ user.accent }}"
                 class="profile-card group relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-panel border border-edge
                        transition-all duration-250 hover:-translate-y-1 overflow-hidden
-                       {% if is_pink %}hover:border-pink-300/60 hover:shadow-glow-pink
+                       {% if is_pink %}heart-trail hover:border-pink-300/60 hover:shadow-glow-pink
                        {% elif is_cyan %}hover:border-cyan-400/60 hover:shadow-glow-cyan
                        {% else %}hover:border-indigo-400/60 hover:shadow-glow-indigo{% endif %}">
 
@@ -40,7 +41,7 @@
           {% endif %}
 
           <!-- Avatar -->
-          <span class="relative w-16 h-16 rounded-full grid place-items-center border-2 z-10 overflow-hidden
+          <span class="avatar-float relative w-16 h-16 rounded-full grid place-items-center border-2 z-10 overflow-hidden
                        {% if is_pink %}border-pink-300/45
                        {% elif is_cyan %}border-neon/40
                        {% else %}border-pulse/40{% endif %}">
@@ -111,10 +112,28 @@
                btn:   'from-indigo-600 to-indigo-400 shadow-glow-indigo' },
   };
 
+  // Crossfade the alive background into the chosen profile's palette
+  const bgAlive = document.querySelector('.bg-alive');
+  function morphAccent(accent) {
+    if (!bgAlive) {
+      if (accent) document.documentElement.setAttribute('data-accent', accent);
+      else document.documentElement.removeAttribute('data-accent');
+      return;
+    }
+    bgAlive.classList.add('bg-morph');
+    setTimeout(() => {
+      if (accent) document.documentElement.setAttribute('data-accent', accent);
+      else document.documentElement.removeAttribute('data-accent');
+      bgAlive.classList.remove('bg-morph');
+    }, 320);
+  }
+
   document.querySelectorAll('.profile-card').forEach((card) => {
     card.addEventListener('click', () => {
       const accent = card.dataset.accent;
       const style  = accentStyles[accent] || accentStyles.indigo;
+
+      morphAccent(accent === 'pink' ? 'pink' : 'indigo');
 
       document.getElementById('form-username').value = card.dataset.profile;
       document.getElementById('form-name').textContent = card.dataset.name;
@@ -148,6 +167,7 @@
   });
 
   document.getElementById('back-to-profiles').addEventListener('click', () => {
+    morphAccent(null);
     passwordForm.classList.add('hidden');
     profileSelect.classList.remove('hidden');
     document.getElementById('password').value = '';

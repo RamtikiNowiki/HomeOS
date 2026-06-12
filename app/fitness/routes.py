@@ -252,6 +252,11 @@ def start_session():
         added, _ = import_split_exercises(current_user.id, split_id)
         if added:
             flash(f"Added {added} exercises to your library.", "success")
+    elif split_id and split:
+        # Ad-hoc "Legs" etc. — ensure split exercises exist in library for the picker
+        added, _ = import_split_exercises(current_user.id, split_id)
+        if added:
+            flash(f"Added {added} {split['name'].lower()} exercises to your library.", "success")
 
     session = WorkoutSession(
         user_id=current_user.id,
@@ -290,6 +295,14 @@ def session_detail(session_id: int):
     other_exercises = [ex for ex in exercises if ex.id not in recommended_ids]
     next_exercise = suggest_next_exercise(session) if session.is_active else None
     is_ad_hoc = not session.use_split_template and not session.routine_id
+    suggested_exercises = []
+    if is_ad_hoc and split_key and session.is_active:
+        import_split_exercises(session.user_id, split_key)
+        in_plan = planned_id_set | recommended_ids
+        suggested_exercises = [
+            ex for ex in resolve_split_exercises(session.user_id, split_key)
+            if ex.id not in in_plan
+        ]
     return render_template(
         "fitness/session.html",
         session=session,
@@ -298,6 +311,7 @@ def session_detail(session_id: int):
         progress=progress,
         split_info=split_info,
         other_exercises=other_exercises,
+        suggested_exercises=suggested_exercises,
         planned_id_set=planned_id_set,
         is_ad_hoc=is_ad_hoc,
         default_muscle_filter=default_muscle_filter_for_session(session),

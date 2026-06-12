@@ -18,7 +18,9 @@
       <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">this week</p>
     </div>
     <div class="px-3 py-2 rounded-xl bg-panel border border-edge text-center min-w-[4.5rem]">
-      <p class="text-lg font-display font-bold text-pulse leading-none">{{ streak.day_streak }}</p>
+      <p class="text-lg font-display font-bold text-pulse leading-none">
+        {% if streak.day_streak >= 3 %}<span class="streak-flame" aria-hidden="true">🔥</span>{% endif %}{{ streak.day_streak }}
+      </p>
       <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">day streak</p>
     </div>
   </div>
@@ -27,7 +29,7 @@
 
 {% if today_program and today_program.label != 'Rest' and not active_session %}
 <a href="{% if today_program.routine_id %}{{ url_for('fitness.routine_detail', routine_id=today_program.routine_id) }}{% elif today_program.split_key %}{{ url_for('fitness.plan', split=today_program.split_key) }}{% else %}{{ url_for('fitness.program') }}{% endif %}"
-   class="block mb-6 p-4 rounded-2xl border border-neon/30 bg-gradient-to-r from-pulse/8 to-neon/8 hover:border-neon/50 transition-all stagger-in">
+   class="banner-aurora block mb-6 p-4 rounded-2xl bg-gradient-to-r from-pulse/8 to-neon/8 hover:from-pulse/15 hover:to-neon/15 transition-all stagger-in">
   <p class="text-[10px] font-display uppercase tracking-widest text-neon mb-1">Today's program</p>
   <p class="font-display font-bold text-lg text-slate-100">{{ today_program.label }}</p>
   <p class="text-xs text-slate-500 mt-0.5">Tap to view plan & start →</p>
@@ -38,7 +40,7 @@
 {% if active_session %}
 
 <!-- LIVE WORKOUT BANNER -->
-<div class="relative mb-8 rounded-2xl overflow-hidden">
+<div class="relative mb-8 rounded-2xl overflow-hidden live-session-banner banner-aurora">
   <!-- Layered gradient background -->
   <div class="absolute inset-0 bg-gradient-to-br from-pulse/20 via-panel/80 to-neon/15"></div>
   <div class="absolute inset-0 bg-panel/50 backdrop-blur-sm"></div>

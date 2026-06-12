@@ -67,10 +67,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
 
-<body class="bg-void text-slate-800 dark:text-slate-100 font-body antialiased min-h-screen selection:bg-pulse/20 selection:text-pulse">
+<body class="bg-void text-slate-800 dark:text-slate-100 font-body antialiased min-h-screen selection:bg-pulse/20 selection:text-pulse
+             {{ 'workout-live' if has_active_workout else '' }} {% block body_class %}{% endblock %}">
 
-  <!-- Subtle background grid overlay -->
-  <div class="bg-grid fixed inset-0 pointer-events-none z-0" aria-hidden="true"></div>
+  <!-- Alive background — drifting orbs, sparkles (pink) / hex grid + radar (indigo) -->
+  <div class="bg-alive" aria-hidden="true">
+    <div class="bg-alive__blob bg-alive__blob--1"></div>
+    <div class="bg-alive__blob bg-alive__blob--2"></div>
+    <div class="bg-alive__blob bg-alive__blob--3"></div>
+    <div class="bg-alive__layer"></div>
+    <div class="bg-alive__ring"></div>
+  </div>
+  <div id="seasonal-layer" class="seasonal-layer" hidden aria-hidden="true"></div>
 
   {% if current_user.is_authenticated %}
   {% set nav_items = [
@@ -284,6 +292,7 @@
 
   {% block overlays %}{% endblock %}
 
+  <script src="{{ url_for('static', filename='js/motion.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>

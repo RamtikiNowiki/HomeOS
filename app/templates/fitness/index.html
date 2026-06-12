@@ -13,7 +13,9 @@
     <p class="text-[9px] uppercase tracking-widest text-slate-500">sessions this week</p>
   </div>
   <div class="flex-1 px-3 py-2.5 rounded-xl bg-panel border border-edge text-center">
-    <p class="text-xl font-display font-bold text-pulse">{{ streak.day_streak }}</p>
+    <p class="text-xl font-display font-bold text-pulse">
+      {% if streak.day_streak >= 3 %}<span class="streak-flame" aria-hidden="true">🔥</span>{% endif %}{{ streak.day_streak }}
+    </p>
     <p class="text-[9px] uppercase tracking-widest text-slate-500">day streak</p>
   </div>
 </div>
@@ -25,7 +27,7 @@
   <h1 class="text-2xl font-display font-bold">In Progress</h1>
   <p class="text-xs text-slate-500 mt-0.5">Tap any exercise to jump ahead · skip from the log screen if a machine is taken</p>
 </div>
-<div class="mb-6 p-5 rounded-2xl border border-neon/40 bg-neon/5">
+<div class="mb-6 p-5 rounded-2xl border border-neon/40 bg-neon/5 live-session-banner banner-aurora">
   <div class="flex items-start justify-between gap-3 mb-4">
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2 mb-1">
@@ -241,7 +243,7 @@
 {% endif %}
 
 {# ---- Exercise search + list ---- #}
-<div class="mb-6">
+<div class="mb-6" id="train-ptr-root">
   <div class="flex items-center gap-3 mb-3">
     <p class="text-[10px] font-display font-bold uppercase tracking-widest text-slate-500 shrink-0">
       {{ 'Add Exercise' if active_session else 'Your Exercises' }}

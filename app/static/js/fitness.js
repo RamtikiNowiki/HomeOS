@@ -7,7 +7,10 @@ function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector
   if (!list) return;
 
   let activeGroup = defaultGroup || "";
-  let beginnerOnly = localStorage.getItem("fitness-beginner-mode") === "1";
+  const supportsBeginner = Boolean(
+    beginnerToggleId || list.querySelector(`${rowSelector}[data-beginner]`)
+  );
+  let beginnerOnly = supportsBeginner && localStorage.getItem("fitness-beginner-mode") === "1";
 
   const beginnerToggle = beginnerToggleId ? document.getElementById(beginnerToggleId) : null;
   const syncBeginnerToggle = () => {
@@ -53,7 +56,17 @@ function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector
       if (show) visible += 1;
     });
     const empty = list.querySelector("[data-search-empty]");
-    if (empty) empty.classList.toggle("hidden", visible > 0 || !q);
+    if (empty) {
+      const filtered = visible === 0 && list.querySelectorAll(rowSelector).length > 0;
+      empty.classList.toggle("hidden", !filtered);
+      if (filtered && beginnerOnly) {
+        empty.textContent = "No machine-friendly exercises match — try All groups or turn off Machines only.";
+      } else if (filtered && activeGroup) {
+        empty.textContent = `No ${activeGroup} exercises in your library — tap All or import from Catalog.`;
+      } else if (filtered) {
+        empty.textContent = "No exercises match your search.";
+      }
+    }
   };
 
   input?.addEventListener("input", filter);
@@ -201,26 +214,23 @@ function createRestTimer(opts) {
   const panel = document.getElementById(opts.panelId || "rest-timer");
   const display = document.getElementById(opts.displayId || "rest-display");
   const bar = document.getElementById(opts.barId || "rest-bar");
+  const ring = document.getElementById(opts.ringId || "rest-ring-progress");
   const nextHint = document.getElementById(opts.nextHintId || "rest-next-exercise");
   const storageKey = opts.storageKey || "fitness-rest-seconds";
   const soundKey = "fitness-rest-sound";
   let interval = null;
   let seconds = 0;
   let total = 90;
+  const ringLen = ring ? parseFloat(ring.getAttribute("stroke-dasharray") || "326.7") : 326.7;
+
+  const updateRing = (sec, tot) => {
+    if (!ring || !tot) return;
+    ring.style.strokeDashoffset = String(ringLen * (1 - sec / tot));
+  };
 
   const playDoneSound = () => {
-    if (localStorage.getItem(soundKey) === "0") return;
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      gain.gain.value = 0.08;
-      osc.start();
-      osc.stop(ctx.currentTime + 0.15);
-    } catch (_) {}
+    if (localStorage.getItem(soundKey) !== "1") return;
+    if (window.HomeOSMotion) HomeOSMotion.playRestSound();
   };
 
   const format = (s) => {
@@ -239,18 +249,21 @@ function createRestTimer(opts) {
       display.classList.remove("text-emerald-400");
     }
     if (bar) bar.style.width = "100%";
+    updateRing(seconds, total);
     clearInterval(interval);
     interval = setInterval(() => {
       seconds -= 1;
       if (display) display.textContent = format(Math.max(0, seconds));
       if (bar) bar.style.width = `${(seconds / total) * 100}%`;
+      updateRing(Math.max(0, seconds), total);
       if (seconds <= 0) {
         clearInterval(interval);
         if (display) {
           display.textContent = "Go!";
           display.classList.add("text-emerald-400");
         }
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        if (window.HomeOSMotion) HomeOSMotion.hapticRestDone();
+        else if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
         playDoneSound();
       }
     }, 1000);
@@ -270,17 +283,19 @@ function createRestTimer(opts) {
     seconds += 30;
     total += 30;
     if (display) display.textContent = format(seconds);
+    updateRing(seconds, total);
   });
 
   const soundBtn = document.getElementById("rest-sound-toggle");
   if (soundBtn) {
     const syncSoundToggle = () => {
-      const on = localStorage.getItem(soundKey) !== "0";
+      const on = localStorage.getItem(soundKey) === "1";
       soundBtn.setAttribute("aria-pressed", on ? "true" : "false");
+      soundBtn.textContent = on ? "🔔" : "🔕";
     };
     syncSoundToggle();
     soundBtn.addEventListener("click", () => {
-      const on = localStorage.getItem(soundKey) !== "0";
+      const on = localStorage.getItem(soundKey) === "1";
       localStorage.setItem(soundKey, on ? "0" : "1");
       syncSoundToggle();
     });
@@ -337,6 +352,9 @@ function buildSetRow(data, weightFormat) {
 
   const delForm = row.querySelector("[data-delete-form]");
   delForm.action = data.delete_url;
+
+  row.classList.add("set-row-enter");
+  row.addEventListener("animationend", () => row.classList.remove("set-row-enter"), { once: true });
 
   return row;
 }
@@ -413,10 +431,15 @@ function initLogSheet() {
     buildTray(scrollToEnd);
   }
 
+  function navPad() {
+    if (window.innerWidth >= 1024) return 0;
+    return parseFloat(getComputedStyle(sheet).paddingBottom) || 0;
+  }
+
   function visibleHeight() {
     const handleH = sheet.querySelector(".sheet-handle")?.offsetHeight || 0;
     const bodyH = collapsed ? 0 : body.offsetHeight;
-    return handleH + bodyH;
+    return handleH + bodyH + navPad();
   }
 
   function updateSpacer() {
@@ -565,7 +588,13 @@ function showPrCelebration(pr) {
   }
   el.classList.remove("hidden");
   el.classList.add("pr-pop");
-  if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+  if (window.HomeOSMotion) {
+    HomeOSMotion.burstParticles(el);
+    HomeOSMotion.hapticPr();
+    HomeOSMotion.playPrSound();
+  } else if (navigator.vibrate) {
+    navigator.vibrate([80, 40, 120]);
+  }
   setTimeout(() => {
     el.classList.add("hidden");
     el.classList.remove("pr-pop");
@@ -662,7 +691,13 @@ function initAjaxSetLogging(formId, sheetApi) {
         if (rpeInput) rpeInput.value = data.prefill.rpe || "";
       }
       updatePlateHint();
-      if (navigator.vibrate) navigator.vibrate(30);
+      if (window.HomeOSMotion) HomeOSMotion.hapticSetLog();
+      else if (navigator.vibrate) navigator.vibrate(18);
+      if (logBtn) {
+        logBtn.classList.remove("btn-log-bounce");
+        void logBtn.offsetWidth;
+        logBtn.classList.add("btn-log-bounce");
+      }
       rest.start(rest.defaultSeconds);
       if (data.pr) showPrCelebration(data.pr);
       showUndoToast(data.set, form.action.replace("/sets", "/sets"));

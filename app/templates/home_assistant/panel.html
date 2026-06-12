@@ -18,7 +18,7 @@
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 stagger-in">
   {% for light in lights %}
     <div data-light-card data-state="{{ light.state }}"
-         class="light-card p-5 rounded-2xl bg-panel border border-edge shadow-card transition-all">
+         class="light-card p-5 rounded-2xl bg-panel border border-edge shadow-card transition-all {{ 'light-card-live' if light.state == 'on' else '' }}">
       <div class="flex items-center gap-4">
         <span class="light-icon w-12 h-12 shrink-0 grid place-items-center rounded-2xl border transition-all">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

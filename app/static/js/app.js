@@ -68,7 +68,10 @@ document.addEventListener("click", async (event) => {
   try {
     const data = await postJSON(toggle.dataset.url);
     const card = toggle.closest("[data-light-card]");
-    if (card) card.dataset.state = data.state;
+    if (card) {
+      card.dataset.state = data.state;
+      card.classList.toggle("light-card-live", data.state === "on");
+    }
     toggle.dataset.state = data.state;
     toggle.setAttribute("aria-checked", data.state === "on" ? "true" : "false");
   } catch (err) {
@@ -90,7 +93,10 @@ if (printerPanel) {
       const bar = printerPanel.querySelector("[data-printer-bar]");
       const pct = printerPanel.querySelector("[data-printer-pct]");
       const eta = printerPanel.querySelector("[data-printer-eta]");
-      if (bar) bar.style.width = `${s.progress}%`;
+      if (bar) {
+        bar.style.width = `${s.progress}%`;
+        bar.classList.toggle("printer-bar-live", s.state === "printing");
+      }
       if (pct) pct.textContent = `${s.progress}%`;
       if (eta) eta.textContent = s.time_remaining;
     } catch (err) {

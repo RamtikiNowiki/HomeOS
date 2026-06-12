@@ -35,7 +35,7 @@
     <p class="font-semibold text-lg text-slate-100 truncate mb-4" title="{{ status.print_name }}">{{ status.print_name }}</p>
 
     <div class="h-3 rounded-full bg-void border border-edge overflow-hidden mb-2">
-      <div data-printer-bar class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-[width] duration-700"
+      <div data-printer-bar class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-[width] duration-700 {{ 'printer-bar-live' if status.state == 'printing' else '' }}"
            style="width: {{ status.progress }}%"></div>
     </div>
     <div class="flex items-center justify-between">

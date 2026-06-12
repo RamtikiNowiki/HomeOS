@@ -144,9 +144,30 @@
 <div class="mb-5 p-4 rounded-2xl border border-dashed border-edge bg-panel/50">
   <p class="text-sm text-slate-400">Nothing added yet — tap <span class="text-neon font-bold px-1">+</span> on exercises below to build your workout.</p>
   {% if split_info %}
-  <p class="text-xs text-slate-600 mt-1">{{ split_info.name }} suggestions shown first.</p>
+  <p class="text-xs text-slate-600 mt-1">{{ split_info.name }} suggestions shown first{% if suggested_exercises %} — {{ suggested_exercises|length }} ready to add{% endif %}.</p>
   {% endif %}
 </div>
+{% if suggested_exercises %}
+<div class="mb-5 stagger-in">
+  <div class="flex items-center gap-3 mb-2">
+    <p class="text-[10px] font-display font-bold uppercase tracking-widest text-neon shrink-0">Suggested for {{ split_info.name if split_info else 'today' }}</p>
+    <div class="flex-1 h-px bg-gradient-to-r from-neon/40 to-transparent"></div>
+  </div>
+  <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+    {% for exercise in suggested_exercises %}
+    <form action="{{ url_for('fitness.add_to_session_plan', session_id=session.id, exercise_id=exercise.id) }}" method="post" class="shrink-0">
+      <input type="hidden" name="next" value="{{ request.url }}">
+      <button type="submit"
+              class="flex items-center gap-2 px-3 py-2 rounded-xl bg-neon/10 border border-neon/30 hover:bg-neon/20 active:scale-95 transition-all whitespace-nowrap">
+        <img src="{{ url_for('static', filename=exercise|ex_icon) }}" alt="" width="28" height="28" class="pixel-icon">
+        <span class="text-xs font-medium text-slate-100">{{ exercise|ex_display }}</span>
+        <span class="text-neon text-sm font-bold">+</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 {% endif %}
 
 {# ── SECTION: Notes ──────────────────────────────────────── #}
@@ -212,7 +233,10 @@
     {% endif %}
   </div>
 
-  <div class="flex flex-wrap gap-1.5 mb-3" id="session-muscle-chips">
+  <div class="flex flex-wrap gap-1.5 mb-3 items-center" id="session-muscle-chips">
+    <button type="button" id="session-beginner-mode-toggle" aria-pressed="false"
+            class="px-2.5 py-1.5 rounded-full text-[10px] font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 hover:border-neon/40 transition-colors"
+            title="Show machine-friendly exercises only">Machines only</button>
     <button type="button" data-group="" class="muscle-chip px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 transition-colors">All</button>
     {% for g in muscle_groups %}
       <button type="button" data-group="{{ g }}" class="muscle-chip px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 transition-colors">{{ g }}</button>
@@ -231,11 +255,12 @@
       {% set in_plan = exercise.id in planned_id_set %}
       <div class="exercise-row flex items-center gap-2 px-3 py-3 rounded-xl bg-void border
                   {{ 'border-neon/30 bg-neon/5' if in_plan else 'border-edge' }}"
-           data-name="{{ exercise.name }}" data-group="{{ exercise.muscle_group }}">
+           data-name="{{ exercise.name }}" data-group="{{ exercise.muscle_group }}"
+           data-search-text="{{ exercise|ex_search }}" data-beginner="{{ '1' if exercise|ex_beginner else '0' }}">
         <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
              alt="" loading="lazy" width="32" height="32" class="shrink-0 w-8 h-8 object-contain pixel-icon">
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-slate-100 truncate">{{ exercise.name }}</p>
+          <p class="text-sm font-medium text-slate-100 truncate">{{ exercise|ex_display }}</p>
           <p class="text-[10px] text-slate-500">{{ exercise.muscle_group }}{% if in_plan %} · <span class="text-neon">in picks</span>{% endif %}</p>
         </div>
         {% if previous %}
@@ -313,6 +338,7 @@
       rowSelector: ".exercise-row",
       chipsSelector: "#session-muscle-chips .muscle-chip",
       defaultGroup: picker.dataset.defaultMuscle || "",
+      beginnerToggleId: "session-beginner-mode-toggle",
     });
   }
 </script>

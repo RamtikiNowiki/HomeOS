@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ exercise.name }}{% endblock %}
+{% block body_class %}bg-dim solid-ui{% endblock %}
 
 {% block content %}
 {% include "fitness/_subnav.html" %}
@@ -138,13 +139,26 @@
   <div class="flex items-center justify-between px-4 py-3 border-b border-edge/60">
     <p class="text-[10px] font-display font-semibold uppercase tracking-widest text-neon">Rest Timer</p>
     <div class="flex gap-3 items-center">
-      <button type="button" id="rest-sound-toggle" aria-pressed="true" class="text-[10px] text-slate-500 hover:text-neon transition-colors" title="Toggle rest sound">🔔</button>
+      <button type="button" id="rest-sound-toggle" aria-pressed="false" class="text-[10px] text-slate-500 hover:text-neon transition-colors" title="Toggle rest sound">🔕</button>
       <button type="button" id="rest-add-30" class="text-[10px] text-slate-500 hover:text-neon transition-colors">+30s</button>
       <button type="button" id="rest-dismiss" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">Dismiss</button>
     </div>
   </div>
   <div class="px-4 py-3">
-    <p class="text-3xl font-display font-bold text-center text-neon mb-2" id="rest-display">1:30</p>
+    <div class="rest-timer-ring-wrap relative">
+      <svg class="rest-ring-svg" viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id="rest-ring-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="var(--pulse)" />
+            <stop offset="100%" stop-color="var(--neon)" />
+          </linearGradient>
+        </defs>
+        <circle class="rest-ring-bg" cx="60" cy="60" r="52" />
+        <circle id="rest-ring-progress" class="rest-ring-progress" cx="60" cy="60" r="52"
+                stroke-dasharray="326.7" stroke-dashoffset="0" />
+      </svg>
+      <p class="absolute inset-0 grid place-items-center text-2xl font-display font-bold text-neon mb-0" id="rest-display">1:30</p>
+    </div>
     <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden mb-3">
       <div id="rest-bar" class="h-full bg-gradient-to-r from-pulse to-neon transition-all duration-1000" style="width: 100%"></div>
     </div>

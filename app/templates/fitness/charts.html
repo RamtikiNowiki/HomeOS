@@ -12,12 +12,12 @@
 <div class="space-y-6">
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     {% with label='Body Weight' %}{% include "fitness/_section_header.html" %}{% endwith %}
-    <div class="chart-wrap"><canvas id="weight-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart><canvas id="weight-chart"></canvas></div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     {% with label='Weekly Volume (lb)' %}{% include "fitness/_section_header.html" %}{% endwith %}
-    <div class="chart-wrap"><canvas id="volume-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart><canvas id="volume-chart"></canvas></div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
@@ -31,7 +31,7 @@
         </select>
       </form>
     </div>
-    <div class="chart-wrap"><canvas id="exercise-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart><canvas id="exercise-chart"></canvas></div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
@@ -104,6 +104,10 @@
       },
       options: chartDefaults,
     });
+  }
+
+  if (window.HomeOSMotion) {
+    document.querySelectorAll("[data-skeleton-chart]").forEach((w) => HomeOSMotion.revealChartWrap(w));
   }
 </script>
 {% endblock %}
