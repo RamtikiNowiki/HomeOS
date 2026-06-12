@@ -5,15 +5,9 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('Saved Routines', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6 flex items-start justify-between gap-3">
-  <div>
-    <h1 class="text-2xl font-display font-bold">My Workout Plans</h1>
-    <p class="text-xs text-slate-500 mt-0.5">Saved in advance — preview, edit, start when ready</p>
-  </div>
-  <a href="{{ url_for('fitness.plan') }}"
-     class="shrink-0 px-4 py-2.5 rounded-xl font-display text-xs uppercase tracking-widest text-white
-            bg-gradient-to-r from-pulse to-neon shadow-glow-cyan">+ Plan New</a>
-</div>
+{% with title='My Workout Plans', subtitle='Saved in advance — preview, edit, start when ready', action_url=url_for('fitness.plan'), action_label='+ Plan New' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 {% if routines %}
 <div class="space-y-3 mb-8">

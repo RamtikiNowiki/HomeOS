@@ -230,22 +230,24 @@ _MUSCLE_DEFAULT_ICONS: dict[str, str] = {
 def icon_slug_for_exercise(name: str, muscle_group: str | None = None) -> str:
     """Pixel-icon slug for an exercise.
 
-    Movement keywords first (squat → squat guy), then muscle-group default,
+    Explicit catalog override first, then movement keywords, muscle default,
     then equipment from the catalog, then bodyweight.
     """
+    entry = CATALOG_BY_NAME.get(name)
+    if entry and entry.name in CATALOG_ICON_OVERRIDES:
+        return CATALOG_ICON_OVERRIDES[entry.name]
+
     lowered = name.lower()
     for keyword, slug in _MOVEMENT_KEYWORDS:
         if keyword in lowered:
             return slug
 
     group = muscle_group
-    if group is None:
-        entry = CATALOG_BY_NAME.get(name)
-        group = entry.muscle_group if entry else None
+    if group is None and entry:
+        group = entry.muscle_group
     if group and group.lower() in _MUSCLE_DEFAULT_ICONS:
         return _MUSCLE_DEFAULT_ICONS[group.lower()]
 
-    entry = CATALOG_BY_NAME.get(name)
     if entry:
         return EQUIPMENT_ICONS.get(entry.equipment, "bodyweight")
     return "bodyweight"
@@ -254,6 +256,137 @@ def icon_slug_for_exercise(name: str, muscle_group: str | None = None) -> str:
 def equipment_slug_for_exercise(name: str) -> str:
     """Backward-compatible alias — now resolves to movement-aware icons."""
     return icon_slug_for_exercise(name)
+
+
+# Friendly labels + search aliases for beginners (Aylin-friendly copy)
+CATALOG_DISPLAY_NAMES: dict[str, str] = {
+    "Leg Press": "Leg press (sled machine)",
+    "Hack Squat": "Hack squat (guided machine)",
+    "Lat Pulldown": "Lat pulldown (cable machine)",
+    "Seated Row Machine": "Seated row (machine)",
+    "Machine Chest Press": "Chest press (machine)",
+    "Pec Deck Fly Machine": "Pec deck fly (machine)",
+    "Leg Extension": "Leg extension (quad machine)",
+    "Leg Curl": "Leg curl (hamstring machine)",
+    "Assisted Pull-up Machine": "Assisted pull-up (machine)",
+    "Assisted Dip Machine": "Assisted dip (machine)",
+    "Hip Abduction Machine": "Hip abduction (outer thigh)",
+    "Hip Adduction Machine": "Hip adduction (inner thigh)",
+    "Glute Kickback Machine": "Glute kickback (machine)",
+    "Lateral Raise Machine": "Lateral raise (machine)",
+    "Tricep Extension Machine": "Tricep extension (machine)",
+    "Ab Crunch Machine": "Ab crunch (machine)",
+    "Smith Machine Squat": "Smith machine squat",
+    "Smith Machine Bench Press": "Smith machine bench",
+    "Romanian Deadlift": "Romanian deadlift (RDL)",
+    "Tricep Pushdown": "Tricep pushdown (cable)",
+    "Seated Cable Row": "Seated cable row",
+}
+
+CATALOG_ALIASES: dict[str, tuple[str, ...]] = {
+    "Leg Press": ("Leg sled", "Sled press"),
+    "Lat Pulldown": ("Pulldown", "Lat pull"),
+    "Romanian Deadlift": ("RDL",),
+    "Tricep Pushdown": ("Pushdown", "Cable triceps"),
+    "Machine Chest Press": ("Chest press machine",),
+    "Assisted Pull-up Machine": ("Assisted pullups",),
+    "Hip Thrust Machine": ("Glute machine",),
+}
+
+# Explicit icon overrides where keyword matching is ambiguous
+CATALOG_ICON_OVERRIDES: dict[str, str] = {
+    "Face Pull": "lateral-raise",
+    "Shrugs": "deadlift",
+    "Dumbbell Shrugs": "deadlift",
+    "Upright Row": "lateral-raise",
+    "Reverse Pec Deck": "lateral-raise",
+    "Rope Pushdown": "triceps",
+    "Assisted Dip Machine": "triceps",
+    "Wrist Curl": "curl",
+    "Kettlebell Swing": "kettlebell",
+    "Hyperextension": "core",
+    "Back Extension Machine": "core",
+    "Straight-Arm Pulldown": "pullup",
+    "Close-Grip Lat Pulldown": "pullup",
+    "Chest-Supported Row Machine": "row",
+    "Cable Kickback": "leg-press",
+    "Hip Thrust Machine": "leg-press",
+    "Glute Kickback Machine": "leg-press",
+    "Preacher Curl Machine": "curl",
+}
+
+# Machine-first + easy cable/bodyweight picks for beginner import
+BEGINNER_EXERCISES: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        e.name
+        for e in EXERCISE_CATALOG
+        if e.equipment == "Machine"
+        or e.name in (
+            "Lat Pulldown",
+            "Seated Cable Row",
+            "Tricep Pushdown",
+            "Cable Curl",
+            "Push-ups",
+            "Knee Push-ups",
+            "Plank",
+            "Crunches",
+            "Goblet Squat",
+            "Dumbbell Bench Press",
+            "Dumbbell Curl",
+            "Hammer Curl",
+            "Walking Lunge",
+        )
+    )
+)
+
+# Shared machine-friendly routines (seeded for Aylin)
+BEGINNER_ROUTINES: tuple[dict, ...] = (
+    {
+        "name": "Aylin — Easy Leg Day",
+        "exercises": (
+            "Leg Press",
+            "Leg Extension",
+            "Leg Curl",
+            "Hip Abduction Machine",
+            "Seated Calf Raise",
+        ),
+    },
+    {
+        "name": "Aylin — Upper Machines",
+        "exercises": (
+            "Machine Chest Press",
+            "Lat Pulldown",
+            "Seated Row Machine",
+            "Machine Shoulder Press",
+            "Tricep Pushdown",
+        ),
+    },
+)
+
+
+def display_name_for_exercise(name: str) -> str:
+    return CATALOG_DISPLAY_NAMES.get(name, name)
+
+
+def aliases_for_exercise(name: str) -> tuple[str, ...]:
+    return CATALOG_ALIASES.get(name, ())
+
+
+def is_beginner_exercise(name: str) -> bool:
+    return name in BEGINNER_EXERCISES
+
+
+def equipment_for_exercise(name: str) -> str | None:
+    entry = CATALOG_BY_NAME.get(name)
+    return entry.equipment if entry else None
+
+
+def is_barbell_exercise(name: str) -> bool:
+    eq = equipment_for_exercise(name)
+    if eq == "Barbell":
+        return True
+    lowered = name.lower()
+    return "barbell" in lowered or "bench press" in lowered and "machine" not in lowered
 
 # ---------------------------------------------------------------------------
 # Workout split templates

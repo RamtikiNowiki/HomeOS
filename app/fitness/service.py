@@ -12,6 +12,7 @@ from ..models import (
     utcnow,
 )
 from .catalog import (
+    BEGINNER_EXERCISES,
     STARTER_EXERCISES,
     catalog_entry,
     get_split,
@@ -52,6 +53,62 @@ def import_catalog_exercises(user_id: int, names: list[str]) -> tuple[int, int]:
 
 def import_starter_library(user_id: int) -> tuple[int, int]:
     return import_catalog_exercises(user_id, list(STARTER_EXERCISES))
+
+
+def import_beginner_library(user_id: int) -> tuple[int, int]:
+    return import_catalog_exercises(user_id, list(BEGINNER_EXERCISES))
+
+
+def check_set_beats_pr(exercise: Exercise, weight: float, reps: int, is_warmup: bool) -> dict | None:
+    """Return PR info if this working set beats the previous best est. 1RM."""
+    if is_warmup or reps < 1 or weight <= 0:
+        return None
+    new_1rm = weight * (1 + reps / 30.0)
+    prev = exercise.personal_record()
+    if prev is None or new_1rm > prev["estimated_1rm"] + 0.01:
+        return {
+            "weight": weight,
+            "reps": reps,
+            "estimated_1rm": round(new_1rm, 1),
+            "previous_1rm": round(prev["estimated_1rm"], 1) if prev else None,
+        }
+    return None
+
+
+def workout_streak_stats(user_id: int) -> dict:
+    """Weekly session count and consecutive-day workout streak."""
+    from datetime import timedelta
+
+    finished = (
+        WorkoutSession.query.filter_by(user_id=user_id)
+        .filter(WorkoutSession.finished_at.isnot(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .all()
+    )
+    if not finished:
+        return {"weekly_sessions": 0, "day_streak": 0}
+
+    now = utcnow()
+    week_ago = now - timedelta(days=7)
+    weekly = sum(1 for s in finished if s.started_at >= week_ago)
+
+    days_with_workouts = sorted(
+        {s.started_at.date() for s in finished},
+        reverse=True,
+    )
+    streak = 0
+    if days_with_workouts:
+        cursor = now.date()
+        if cursor not in days_with_workouts:
+            cursor -= timedelta(days=1)
+        for d in days_with_workouts:
+            if d == cursor:
+                streak += 1
+                cursor -= timedelta(days=1)
+            elif d < cursor:
+                break
+
+    return {"weekly_sessions": weekly, "day_streak": streak}
 
 
 def import_split_exercises(user_id: int, split_id: str) -> tuple[int, int]:

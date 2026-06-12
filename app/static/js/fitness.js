@@ -1,12 +1,29 @@
 /* ---- Fitness Hub — in-gym UX helpers ---- */
 
-/** Exercise list search/filter with optional muscle-group chips */
-function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector, defaultGroup }) {
+/** Exercise list search/filter with optional muscle-group chips + beginner mode */
+function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector, groupSelectId, defaultGroup, beginnerToggleId }) {
   const input = document.getElementById(searchId);
   const list = document.querySelector(listSelector);
   if (!list) return;
 
   let activeGroup = defaultGroup || "";
+  let beginnerOnly = localStorage.getItem("fitness-beginner-mode") === "1";
+
+  const beginnerToggle = beginnerToggleId ? document.getElementById(beginnerToggleId) : null;
+  const syncBeginnerToggle = () => {
+    if (!beginnerToggle) return;
+    beginnerToggle.classList.toggle("border-neon/40", beginnerOnly);
+    beginnerToggle.classList.toggle("bg-neon/10", beginnerOnly);
+    beginnerToggle.classList.toggle("text-neon", beginnerOnly);
+    beginnerToggle.setAttribute("aria-pressed", beginnerOnly ? "true" : "false");
+  };
+  syncBeginnerToggle();
+  beginnerToggle?.addEventListener("click", () => {
+    beginnerOnly = !beginnerOnly;
+    localStorage.setItem("fitness-beginner-mode", beginnerOnly ? "1" : "0");
+    syncBeginnerToggle();
+    filter();
+  });
 
   const setChipStyles = () => {
     if (!chipsSelector) return;
@@ -26,10 +43,12 @@ function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector
     let visible = 0;
     list.querySelectorAll(rowSelector).forEach((row) => {
       const name = (row.dataset.name || "").toLowerCase();
+      const searchText = (row.dataset.searchText || name).toLowerCase();
       const group = (row.dataset.group || "").toLowerCase();
-      const matchSearch = !q || name.includes(q) || group.includes(q);
+      const matchSearch = !q || searchText.includes(q) || name.includes(q) || group.includes(q);
       const matchGroup = !activeGroup || row.dataset.group === activeGroup;
-      const show = matchSearch && matchGroup;
+      const matchBeginner = !beginnerOnly || row.dataset.beginner === "1";
+      const show = matchSearch && matchGroup && matchBeginner;
       row.classList.toggle("hidden", !show);
       if (show) visible += 1;
     });
@@ -50,6 +69,12 @@ function initExercisePicker({ searchId, listSelector, rowSelector, chipsSelector
     });
     setChipStyles();
   }
+
+  const groupSelect = groupSelectId ? document.getElementById(groupSelectId) : null;
+  groupSelect?.addEventListener("change", () => {
+    activeGroup = groupSelect.value || "";
+    filter();
+  });
 
   filter();
   return filter;
@@ -171,15 +196,32 @@ function initWarmupToggle(wrap) {
   });
 }
 
-/** Rest timer with remembered duration */
+/** Rest timer with remembered duration, optional next-exercise hint + sound */
 function createRestTimer(opts) {
   const panel = document.getElementById(opts.panelId || "rest-timer");
   const display = document.getElementById(opts.displayId || "rest-display");
   const bar = document.getElementById(opts.barId || "rest-bar");
+  const nextHint = document.getElementById(opts.nextHintId || "rest-next-exercise");
   const storageKey = opts.storageKey || "fitness-rest-seconds";
+  const soundKey = "fitness-rest-sound";
   let interval = null;
   let seconds = 0;
   let total = 90;
+
+  const playDoneSound = () => {
+    if (localStorage.getItem(soundKey) === "0") return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.value = 0.08;
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch (_) {}
+  };
 
   const format = (s) => {
     const m = Math.floor(s / 60);
@@ -209,6 +251,7 @@ function createRestTimer(opts) {
           display.classList.add("text-emerald-400");
         }
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        playDoneSound();
       }
     }, 1000);
   };
@@ -229,8 +272,32 @@ function createRestTimer(opts) {
     if (display) display.textContent = format(seconds);
   });
 
+  const soundBtn = document.getElementById("rest-sound-toggle");
+  if (soundBtn) {
+    const syncSoundToggle = () => {
+      const on = localStorage.getItem(soundKey) !== "0";
+      soundBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    };
+    syncSoundToggle();
+    soundBtn.addEventListener("click", () => {
+      const on = localStorage.getItem(soundKey) !== "0";
+      localStorage.setItem(soundKey, on ? "0" : "1");
+      syncSoundToggle();
+    });
+  }
+
   const defaultSec = parseInt(localStorage.getItem(storageKey) || "90", 10);
-  return { start, defaultSeconds: defaultSec };
+  return { start, defaultSeconds: defaultSec, setNextExercise(name, url, iconUrl) {
+    if (!nextHint) return;
+    if (!name) { nextHint.hidden = true; return; }
+    nextHint.hidden = false;
+    const label = nextHint.querySelector("[data-rest-next-label]");
+    const link = nextHint.querySelector("[data-rest-next-link]");
+    const img = nextHint.querySelector("[data-rest-next-icon]");
+    if (label) label.textContent = name;
+    if (link && url) link.href = url;
+    if (img && iconUrl) img.src = iconUrl;
+  }};
 }
 
 /** Build a set row DOM node from JSON */
@@ -312,22 +379,27 @@ function initLogSheet() {
       return;
     }
     exercises.forEach((ex) => {
-      if (ex.current) {
-        const span = document.createElement("span");
-        span.className = "sheet-tray-chip is-current";
-        span.textContent = ex.name;
-        span.title = `${ex.name} (current)`;
-        tray.appendChild(span);
-        return;
+      const chip = document.createElement(ex.current ? "span" : "a");
+      if (!ex.current) chip.href = ex.url;
+      chip.className = "sheet-tray-chip";
+      if (ex.priority) chip.classList.add("is-priority");
+      if (ex.current) chip.classList.add("is-current");
+      if (ex.done) chip.classList.add("is-done");
+      chip.title = ex.display_name || ex.name;
+      if (ex.icon) {
+        const img = document.createElement("img");
+        img.src = `/static/${ex.icon}`;
+        img.alt = "";
+        img.width = 24;
+        img.height = 24;
+        img.className = "pixel-icon shrink-0";
+        img.loading = "lazy";
+        chip.appendChild(img);
       }
-      const a = document.createElement("a");
-      a.href = ex.url;
-      a.className = "sheet-tray-chip";
-      if (ex.priority) a.classList.add("is-priority");
-      if (ex.done) a.classList.add("is-done");
-      a.textContent = ex.name;
-      a.title = ex.name;
-      tray.appendChild(a);
+      const label = document.createElement("span");
+      label.textContent = ex.display_name || ex.name;
+      chip.appendChild(label);
+      tray.appendChild(chip);
     });
     if (scrollToEnd) {
       requestAnimationFrame(() => {
@@ -484,6 +556,22 @@ function initPlanAjax(sheetApi) {
   });
 }
 
+function showPrCelebration(pr) {
+  const el = document.getElementById("pr-celebration");
+  if (!el || !pr) return;
+  const msg = el.querySelector("[data-pr-msg]");
+  if (msg) {
+    msg.textContent = `New PR — ${pr.weight} lb × ${pr.reps} (est. ${pr.estimated_1rm} lb 1RM)`;
+  }
+  el.classList.remove("hidden");
+  el.classList.add("pr-pop");
+  if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+  setTimeout(() => {
+    el.classList.add("hidden");
+    el.classList.remove("pr-pop");
+  }, 3200);
+}
+
 /** AJAX set logging on exercise page */
 function initAjaxSetLogging(formId, sheetApi) {
   const form = document.getElementById(formId || "log-set-form");
@@ -500,6 +588,13 @@ function initAjaxSetLogging(formId, sheetApi) {
   const logBtn = form.querySelector("[type=submit]");
   const sameBtn = document.getElementById("log-same-btn");
   const rest = createRestTimer({});
+  const nextDataEl = document.getElementById("next-exercise-data");
+  if (nextDataEl) {
+    try {
+      const nx = JSON.parse(nextDataEl.textContent || "null");
+      if (nx) rest.setNextExercise(nx.name, nx.url, nx.icon ? `/static/${nx.icon}` : null);
+    } catch (_) {}
+  }
 
   initSteppers(form);
   initRpeChips(document.getElementById("rpe-chips"), rpeInput);
@@ -528,6 +623,8 @@ function initAjaxSetLogging(formId, sheetApi) {
     plateHint.textContent = side.length
       ? `≈ 45 lb bar + ${side.map((p) => p + "×2").join(", ")}`
       : "Bar only";
+    const plateLink = document.getElementById("plate-calc-link");
+    if (plateLink && w > 0) plateLink.href = `/fitness/plates?weight=${w}`;
   };
 
   weightInput?.addEventListener("input", updatePlateHint);
@@ -565,9 +662,10 @@ function initAjaxSetLogging(formId, sheetApi) {
         if (rpeInput) rpeInput.value = data.prefill.rpe || "";
       }
       updatePlateHint();
+      if (navigator.vibrate) navigator.vibrate(30);
       rest.start(rest.defaultSeconds);
+      if (data.pr) showPrCelebration(data.pr);
       showUndoToast(data.set, form.action.replace("/sets", "/sets"));
-      /* Collapse the sheet to reveal next-exercise tray */
       sheetApi?.afterSetLogged(data.set_count);
     } catch (err) {
       console.error(err);
@@ -716,7 +814,15 @@ function initSwitchPanel() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  initExerciseSearch("exercise-search", "#exercise-list", ".exercise-row");
+  if (document.getElementById("exercise-list")) {
+    initExercisePicker({
+      searchId: "exercise-search",
+      listSelector: "#exercise-list",
+      rowSelector: ".exercise-row",
+      groupSelectId: "muscle-filter",
+      beginnerToggleId: "index-beginner-mode-toggle",
+    });
+  }
 
   /* Session page: picker with defaultGroup from data-attr */
   const sessionPicker = document.getElementById("session-exercise-picker");
@@ -738,6 +844,7 @@ document.addEventListener("DOMContentLoaded", () => {
     rowSelector: ".exercise-switch-row",
     chipsSelector: "#switch-muscle-chips .muscle-chip",
     defaultGroup: switchSection?.dataset.defaultMuscle || "",
+    beginnerToggleId: "beginner-mode-toggle",
   });
 
   initExerciseSearch("routine-exercise-search", "#routine-pick-list", ".routine-pick-row");

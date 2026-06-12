@@ -5,24 +5,24 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('Progress Charts', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">Progress Charts</h1>
-</div>
+{% with title='Progress Charts', subtitle='Strength, volume, and body weight trends' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 <div class="space-y-6">
   <div class="p-4 rounded-2xl bg-panel border border-edge">
-    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Body Weight</h2>
+    {% with label='Body Weight' %}{% include "fitness/_section_header.html" %}{% endwith %}
     <div class="chart-wrap"><canvas id="weight-chart"></canvas></div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
-    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Weekly Volume (lb)</h2>
+    {% with label='Weekly Volume (lb)' %}{% include "fitness/_section_header.html" %}{% endwith %}
     <div class="chart-wrap"><canvas id="volume-chart"></canvas></div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-      <h2 class="text-sm font-display uppercase tracking-widest text-slate-400">Exercise Progress (est. 1RM)</h2>
+      {% with label='Exercise Progress (est. 1RM)' %}{% include "fitness/_section_header.html" %}{% endwith %}
       <form method="get" class="flex gap-2">
         <select name="exercise" onchange="this.form.submit()" class="px-3 py-2 rounded-lg bg-raised border border-edge text-sm">
           {% for ex in exercises %}
@@ -35,7 +35,7 @@
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
-    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Recent Personal Records</h2>
+    {% with label='Recent Personal Records' %}{% include "fitness/_section_header.html" %}{% endwith %}
     {% if pr_events %}
       <div class="space-y-2">
         {% for ev in pr_events %}

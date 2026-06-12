@@ -2,21 +2,20 @@
 {% block title %}Home Automation{% endblock %}
 
 {% block content %}
-<div class="mb-6 flex items-center justify-between">
-  <div>
-    <p class="text-xs font-display font-semibold uppercase tracking-[0.2em] text-slate-500">Smart Home</p>
-    <h1 class="text-2xl font-display font-bold mt-1">Home Automation</h1>
+<div class="mb-6 flex items-center justify-between gap-3">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-display font-bold">Home Automation</h1>
+    <p class="text-xs text-slate-500 mt-0.5">Lights & sensors</p>
   </div>
   {% if is_mock %}
-    <span class="text-[10px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase tracking-wide">Mock Mode</span>
+    <span class="text-[10px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase tracking-wide shrink-0">Mock Mode</span>
   {% else %}
-    <span class="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase tracking-wide">HA Connected</span>
+    <span class="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase tracking-wide shrink-0">HA Connected</span>
   {% endif %}
 </div>
 
-<!-- Lights -->
-<h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Lighting</h2>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+{% with label='Lighting' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 stagger-in">
   {% for light in lights %}
     <div data-light-card data-state="{{ light.state }}"
          class="light-card p-5 rounded-2xl bg-panel border border-edge shadow-card transition-all">
@@ -45,9 +44,8 @@
   {% endfor %}
 </div>
 
-<!-- Sensors -->
-<h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Sensors</h2>
-<div class="p-5 rounded-2xl bg-panel border border-edge shadow-card">
+{% with label='Sensors' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="p-5 rounded-2xl bg-panel border border-edge shadow-card stagger-in">
   <div class="flex items-center gap-4">
     <span class="w-12 h-12 shrink-0 grid place-items-center rounded-2xl bg-neon/10 border border-neon/30 text-neon">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>

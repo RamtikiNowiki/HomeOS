@@ -92,6 +92,41 @@ def migrate_user1_to_indigo() -> None:
         print("  + migrated user1 (ram) → accent=indigo")
 
 
+def seed_beginner_routines() -> None:
+    """Create shared machine-friendly routines for Aylin if missing."""
+    from app.models import User, WorkoutRoutine, WorkoutRoutineExercise, Exercise
+    from app.fitness.catalog import BEGINNER_ROUTINES
+
+    aylin = User.query.filter_by(username="aylin").first()
+    if aylin is None:
+        return
+    import_beginner = __import__(
+        "app.fitness.service", fromlist=["import_beginner_library"]
+    ).import_beginner_library
+    import_beginner(aylin.id)
+
+    for spec in BEGINNER_ROUTINES:
+        existing = WorkoutRoutine.query.filter_by(user_id=aylin.id, name=spec["name"]).first()
+        if existing:
+            continue
+        routine = WorkoutRoutine(user_id=aylin.id, name=spec["name"])
+        db.session.add(routine)
+        db.session.flush()
+        for i, ex_name in enumerate(spec["exercises"], start=1):
+            ex = Exercise.query.filter_by(user_id=aylin.id, name=ex_name).first()
+            if ex is None:
+                continue
+            db.session.add(
+                WorkoutRoutineExercise(
+                    routine_id=routine.id,
+                    exercise_id=ex.id,
+                    sort_order=i,
+                )
+            )
+        print(f"  + created beginner routine “{spec['name']}” for Aylin")
+    db.session.commit()
+
+
 def migrate_user2_to_aylin() -> None:
     """Rename user2 (tiki/cyan) → Aylin/pink in the live DB."""
     from app.models import User  # local import to avoid circular at module level
@@ -276,6 +311,7 @@ def main() -> None:
         migrate_user1_to_indigo()
         migrate_user2_to_aylin()
         migrate_kg_to_lbs()
+        seed_beginner_routines()
 
         demo = os.environ.get("SEED_DEMO_DATA", "1") == "1"
         for spec in USER_SPECS:

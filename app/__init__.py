@@ -54,9 +54,40 @@ def create_app(config_object=None) -> Flask:
         group = getattr(exercise, "muscle_group", None)
         return f"img/px/{_px_theme()}/{icon_slug_for_exercise(name, group)}.png"
 
+    @app.template_filter("ex_display")
+    def ex_display_filter(exercise):
+        from .fitness.catalog import display_name_for_exercise
+        name = getattr(exercise, "name", None) or str(exercise)
+        return display_name_for_exercise(name)
+
+    @app.template_filter("ex_beginner")
+    def ex_beginner_filter(exercise):
+        from .fitness.catalog import is_beginner_exercise
+        name = getattr(exercise, "name", None) or str(exercise)
+        return is_beginner_exercise(name)
+
+    @app.template_filter("ex_search")
+    def ex_search_filter(exercise):
+        from .fitness.catalog import aliases_for_exercise, display_name_for_exercise
+        name = getattr(exercise, "name", None) or str(exercise)
+        parts = [name.lower(), display_name_for_exercise(name).lower()]
+        parts.extend(a.lower() for a in aliases_for_exercise(name))
+        mg = getattr(exercise, "muscle_group", None)
+        if mg:
+            parts.append(mg.lower())
+        return " ".join(parts)
+
     @app.context_processor
     def inject_px_theme():
-        return {"px_theme": _px_theme()}
+        from flask_login import current_user
+        accent = getattr(current_user, "accent", None) if current_user.is_authenticated else None
+        if accent == "pink":
+            theme_meta = {"theme_color_light": "#fdf2f8", "theme_color_dark": "#130c18", "default_theme": "light"}
+        elif accent == "indigo":
+            theme_meta = {"theme_color_light": "#eff6ff", "theme_color_dark": "#070b16", "default_theme": "dark"}
+        else:
+            theme_meta = {"theme_color_light": "#f4f6fb", "theme_color_dark": "#0b0d16", "default_theme": "dark"}
+        return {"px_theme": _px_theme(), **theme_meta}
 
     @app.context_processor
     def inject_workout_nav():

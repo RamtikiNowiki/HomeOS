@@ -4,12 +4,35 @@
 {% block content %}
 
 <!-- ── Greeting ─────────────────────────────────────────── -->
-<div class="mb-8">
-  <p class="text-[11px] font-display font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Command Center</p>
-  <h1 class="text-2xl lg:text-3xl font-display font-bold leading-tight">
-    Hey, <span class="{{ 'text-neon' if current_user.accent != 'indigo' else 'text-pulse' }}">{{ current_user.display_name }}</span>
-  </h1>
+<div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+  <div>
+    <p class="text-[11px] font-display font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Command Center</p>
+    <h1 class="text-2xl lg:text-3xl font-display font-bold leading-tight">
+      Hey, <span class="{{ 'text-neon' if current_user.accent != 'indigo' else 'text-pulse' }}">{{ current_user.display_name }}</span>
+    </h1>
+  </div>
+  {% if streak %}
+  <div class="flex gap-3 shrink-0">
+    <div class="px-3 py-2 rounded-xl bg-panel border border-edge text-center min-w-[4.5rem]">
+      <p class="text-lg font-display font-bold text-neon leading-none">{{ streak.weekly_sessions }}</p>
+      <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">this week</p>
+    </div>
+    <div class="px-3 py-2 rounded-xl bg-panel border border-edge text-center min-w-[4.5rem]">
+      <p class="text-lg font-display font-bold text-pulse leading-none">{{ streak.day_streak }}</p>
+      <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">day streak</p>
+    </div>
+  </div>
+  {% endif %}
 </div>
+
+{% if today_program and today_program.label != 'Rest' and not active_session %}
+<a href="{% if today_program.routine_id %}{{ url_for('fitness.routine_detail', routine_id=today_program.routine_id) }}{% elif today_program.split_key %}{{ url_for('fitness.plan', split=today_program.split_key) }}{% else %}{{ url_for('fitness.program') }}{% endif %}"
+   class="block mb-6 p-4 rounded-2xl border border-neon/30 bg-gradient-to-r from-pulse/8 to-neon/8 hover:border-neon/50 transition-all stagger-in">
+  <p class="text-[10px] font-display uppercase tracking-widest text-neon mb-1">Today's program</p>
+  <p class="font-display font-bold text-lg text-slate-100">{{ today_program.label }}</p>
+  <p class="text-xs text-slate-500 mt-0.5">Tap to view plan & start →</p>
+</a>
+{% endif %}
 
 <!-- ── Active workout OR Start CTA ───────────────────────── -->
 {% if active_session %}
@@ -111,11 +134,8 @@
       <p class="text-xs text-slate-500 mt-1">Routines, templates, or freestyle</p>
     </div>
     <div class="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-pulse to-neon grid place-items-center
-                shadow-glow-indigo group-hover:scale-110 group-hover:shadow-glow-cyan transition-all duration-300">
-      <svg class="text-white" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
+                shadow-glow-indigo group-hover:scale-110 group-hover:shadow-glow-cyan transition-all duration-300 overflow-hidden">
+      <img src="{{ url_for('static', filename='img/px/' + px_theme + '/squat.png') }}" alt="" width="40" height="40" class="pixel-icon">
     </div>
   </div>
 </a>
@@ -123,7 +143,7 @@
 {% endif %}
 
 <!-- ── Stat widget grid ───────────────────────────────────── -->
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger-in">
 
   <!-- ─ Body Weight ───────────────────────────────────────── -->
   <a href="{{ url_for('fitness.weight') }}"
@@ -189,8 +209,8 @@
         <div class="flex items-center gap-2">
           <a href="{{ url_for('fitness.history') }}" class="text-[10px] font-display uppercase tracking-widest text-slate-500 hover:text-neon transition-colors">All →</a>
           <!-- Dumbbell icon -->
-          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center text-slate-500 group-hover:text-pulse group-hover:border-pulse/30 transition-colors duration-200">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 5v14M18 5v14M2 9h4M18 9h4M2 15h4M18 15h4"/></svg>
+          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center overflow-hidden group-hover:border-pulse/30 transition-colors duration-200">
+            <img src="{{ url_for('static', filename='img/px/' + px_theme + '/dumbbell.png') }}" alt="" width="20" height="20" class="pixel-icon">
           </div>
         </div>
       </div>

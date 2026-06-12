@@ -18,6 +18,13 @@
       Import All Starter Exercises
     </button>
   </form>
+  <form action="{{ url_for('fitness.catalog_import_beginner') }}" method="post">
+    <button type="submit"
+            class="px-4 py-2.5 rounded-xl font-display font-semibold uppercase tracking-widest text-xs
+                   bg-pink-500/15 border border-pink-400/40 text-pink-400 hover:bg-pink-500/25 transition-colors">
+      Beginner Pack ({{ beginner_count }} machines)
+    </button>
+  </form>
   <a href="{{ url_for('fitness.exercises') }}"
      class="px-4 py-2.5 rounded-xl bg-raised border border-edge text-xs font-display uppercase tracking-widest text-slate-300 hover:border-neon/50 transition-colors">
     Manage Library
@@ -53,7 +60,7 @@
           <img src="{{ url_for('static', filename=item|ex_icon) }}"
                alt="" loading="lazy" width="36" height="36" class="shrink-0 w-9 h-9 object-contain pixel-icon">
           <div class="flex-1 min-w-0">
-            <p class="font-medium text-slate-100 truncate">{{ item.name }}</p>
+            <p class="font-medium text-slate-100 truncate">{{ item|ex_display }}</p>
             <p class="text-[10px] text-slate-500">{{ item.equipment }}</p>
           </div>
           {% if item.name in owned %}

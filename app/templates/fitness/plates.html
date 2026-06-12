@@ -5,10 +5,9 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('Plate Calculator', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">Plate Calculator</h1>
-  <p class="text-xs text-slate-500 mt-0.5">US standard plates · per side</p>
-</div>
+{% with title='Plate Calculator', subtitle='US standard plates · per side' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 <form method="post" class="p-4 rounded-2xl bg-panel border border-edge mb-6">
   <div class="grid grid-cols-2 gap-3 mb-4">

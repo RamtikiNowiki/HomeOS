@@ -30,7 +30,6 @@
 
   <!-- Collapsible body -->
   <div id="switch-body" class="hidden border-t border-edge/60 px-4 pb-4 pt-3">
-    <div>
 
   {% if progress and progress.total > 0 %}
   <div class="flex items-center justify-between mb-2">
@@ -88,8 +87,13 @@
     {{ 'Add to workout' if is_ad_hoc else 'Other exercises' }}
   </p>
 
+  <div class="flex flex-wrap items-center gap-1.5 mb-2">
+    <button type="button" id="beginner-mode-toggle" aria-pressed="false"
+            class="px-2.5 py-1 rounded-full text-[10px] font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 hover:border-neon/40 transition-colors">
+      Machines only
+    </button>
   {% if extra_exercises|length > 6 %}
-  <div class="flex flex-wrap gap-1 mb-2 overflow-x-auto pb-0.5" id="switch-muscle-chips">
+  <div class="flex flex-wrap gap-1 overflow-x-auto pb-0.5 flex-1" id="switch-muscle-chips">
     <button type="button" data-group="" class="muscle-chip px-2.5 py-1 rounded-full text-[10px] font-display uppercase tracking-widest border border-edge bg-raised text-slate-400">All</button>
     {% for g in ['Chest', 'Back', 'Shoulders', 'Legs', 'Arms', 'Core'] %}
       <button type="button" data-group="{{ g }}" class="muscle-chip px-2.5 py-1 rounded-full text-[10px] font-display uppercase tracking-widest border border-edge bg-raised text-slate-400">{{ g }}</button>
@@ -101,16 +105,18 @@
     <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
   </div>
   {% endif %}
+  </div>
 
   <div id="switch-exercise-list" class="grid grid-cols-1 gap-1.5 max-h-52 overflow-y-auto overscroll-contain">
     {% for ex in extra_exercises %}
       {% set in_plan = planned_id_set is defined and ex.id in planned_id_set %}
       <div class="exercise-switch-row flex items-center gap-2 px-3 py-2.5 rounded-xl bg-void border border-edge"
-           data-name="{{ ex.name }}" data-group="{{ ex.muscle_group }}">
+           data-name="{{ ex.name }}" data-group="{{ ex.muscle_group }}"
+           data-search-text="{{ ex|ex_search }}" data-beginner="{{ '1' if ex|ex_beginner else '0' }}">
         <img src="{{ url_for('static', filename=ex|ex_icon) }}"
              alt="" loading="lazy" width="28" height="28" class="shrink-0 w-7 h-7 object-contain pixel-icon">
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-slate-200 truncate">{{ ex.name }}</p>
+          <p class="text-sm text-slate-200 truncate">{{ ex|ex_display }}</p>
           <p class="text-[10px] text-slate-500">{{ ex.muscle_group }}</p>
         </div>
         {% if in_plan %}

@@ -6,6 +6,19 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Train', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
+{% if not active_session and streak %}
+<div class="flex gap-3 mb-4">
+  <div class="flex-1 px-3 py-2.5 rounded-xl bg-panel border border-edge text-center">
+    <p class="text-xl font-display font-bold text-neon">{{ streak.weekly_sessions }}</p>
+    <p class="text-[9px] uppercase tracking-widest text-slate-500">sessions this week</p>
+  </div>
+  <div class="flex-1 px-3 py-2.5 rounded-xl bg-panel border border-edge text-center">
+    <p class="text-xl font-display font-bold text-pulse">{{ streak.day_streak }}</p>
+    <p class="text-[9px] uppercase tracking-widest text-slate-500">day streak</p>
+  </div>
+</div>
+{% endif %}
+
 {% if active_session %}
 {# ---- Workout mode ---- #}
 <div class="mb-2">
@@ -235,12 +248,17 @@
     </p>
     <div class="flex-1 h-px bg-gradient-to-r from-edge/80 to-transparent"></div>
     {% if exercises|length > 0 %}
-    <select id="muscle-filter" class="shrink-0 text-xs px-2 py-1.5 rounded-lg bg-raised border border-edge text-slate-400">
-      <option value="">All groups</option>
-      {% for g in muscle_groups %}
-        <option value="{{ g }}">{{ g }}</option>
-      {% endfor %}
-    </select>
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" id="index-beginner-mode-toggle" aria-pressed="false"
+              class="px-2.5 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-widest border border-edge bg-raised text-slate-400 hover:border-neon/40 transition-colors"
+              title="Show machine-friendly exercises only">Machines only</button>
+      <select id="muscle-filter" class="text-xs px-2 py-1.5 rounded-lg bg-raised border border-edge text-slate-400">
+        <option value="">All groups</option>
+        {% for g in muscle_groups %}
+          <option value="{{ g }}">{{ g }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% endif %}
   </div>
 
@@ -257,11 +275,12 @@
     {% for exercise in exercises %}
       {% set previous = exercise.last_completed_session_sets() %}
       <div class="exercise-row flex items-center gap-3 p-4 rounded-2xl bg-panel border border-edge"
-           data-group="{{ exercise.muscle_group }}" data-name="{{ exercise.name }}">
+           data-group="{{ exercise.muscle_group }}" data-name="{{ exercise.name }}"
+           data-search-text="{{ exercise|ex_search }}" data-beginner="{{ '1' if exercise|ex_beginner else '0' }}">
         <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
              alt="" loading="lazy" width="40" height="40" class="shrink-0 w-10 h-10 object-contain pixel-icon">
         <div class="flex-1 min-w-0">
-          <p class="font-semibold text-slate-100 truncate">{{ exercise.name }}</p>
+          <p class="font-semibold text-slate-100 truncate">{{ exercise|ex_display }}</p>
           <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>
         </div>
         {% if previous %}
@@ -352,20 +371,6 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 <script>
-  const filter = document.getElementById("muscle-filter");
-  const searchInput = document.getElementById("exercise-search");
-  if (filter) {
-    filter.addEventListener("change", () => {
-      const val = filter.value;
-      document.querySelectorAll(".exercise-row").forEach((row) => {
-        const groupMatch = !val || row.dataset.group === val;
-        const q = (searchInput?.value || "").trim().toLowerCase();
-        const searchMatch = !q || row.dataset.name.toLowerCase().includes(q) || row.dataset.group.toLowerCase().includes(q);
-        row.classList.toggle("hidden", !(groupMatch && searchMatch));
-      });
-    });
-  }
-
   document.querySelectorAll(".session-name-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const input = document.getElementById("session-name-input");

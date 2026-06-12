@@ -17,7 +17,10 @@
       <img src="{{ url_for('static', filename=exercise|ex_icon) }}"
            alt="" width="48" height="48" class="shrink-0 w-12 h-12 object-contain pixel-icon mt-0.5">
       <div class="min-w-0">
-        <h1 class="text-2xl font-display font-bold leading-tight">{{ exercise.name }}</h1>
+        <h1 class="text-2xl font-display font-bold leading-tight">{{ exercise_display_name|default(exercise.name) }}</h1>
+        {% if exercise_display_name and exercise_display_name != exercise.name %}
+        <p class="text-[10px] text-slate-500 mt-0.5">Catalog: {{ exercise.name }}</p>
+        {% endif %}
         <div class="flex items-center gap-2 mt-1">
           <span class="px-2 py-0.5 rounded-md bg-raised border border-edge text-[10px] font-display uppercase tracking-wider text-slate-400">{{ exercise.muscle_group }}</span>
           {% if current_sets %}
@@ -134,7 +137,8 @@
 <div class="mb-5 rounded-2xl bg-panel border border-edge" id="rest-timer" hidden>
   <div class="flex items-center justify-between px-4 py-3 border-b border-edge/60">
     <p class="text-[10px] font-display font-semibold uppercase tracking-widest text-neon">Rest Timer</p>
-    <div class="flex gap-3">
+    <div class="flex gap-3 items-center">
+      <button type="button" id="rest-sound-toggle" aria-pressed="true" class="text-[10px] text-slate-500 hover:text-neon transition-colors" title="Toggle rest sound">🔔</button>
       <button type="button" id="rest-add-30" class="text-[10px] text-slate-500 hover:text-neon transition-colors">+30s</button>
       <button type="button" id="rest-dismiss" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">Dismiss</button>
     </div>
@@ -143,6 +147,19 @@
     <p class="text-3xl font-display font-bold text-center text-neon mb-2" id="rest-display">1:30</p>
     <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden mb-3">
       <div id="rest-bar" class="h-full bg-gradient-to-r from-pulse to-neon transition-all duration-1000" style="width: 100%"></div>
+    </div>
+    <div id="rest-next-exercise" class="mb-3 {% if not next_exercise %}hidden{% endif %}" {% if not next_exercise %}hidden{% endif %}>
+      <a data-rest-next-link href="{% if next_exercise %}{{ url_for('fitness.log_exercise', session_id=session.id, exercise_id=next_exercise.id) }}{% else %}#{% endif %}"
+         class="flex items-center gap-2 p-2.5 rounded-xl bg-void border border-neon/25 hover:border-neon/45 transition-colors">
+        {% if next_exercise %}
+        <img data-rest-next-icon src="{{ url_for('static', filename=next_exercise_icon) }}" alt="" width="32" height="32" class="pixel-icon shrink-0">
+        {% endif %}
+        <div class="min-w-0">
+          <p class="text-[9px] font-display uppercase tracking-widest text-pulse">Up next</p>
+          <p data-rest-next-label class="text-sm font-semibold text-slate-100 truncate">{% if next_exercise %}{{ next_exercise|ex_display }}{% endif %}</p>
+        </div>
+        <span class="ml-auto text-neon shrink-0">→</span>
+      </a>
     </div>
     <div class="flex gap-2 justify-center flex-wrap">
       <button type="button" data-rest="60" class="rest-preset px-3 py-1.5 rounded-lg text-xs bg-raised border border-edge text-slate-400">60s</button>
@@ -243,6 +260,10 @@
               ≈ {{ plate_hint.bar_weight|lbs }} lb bar + {% for p in plate_hint.per_side %}{{ p|lbs }}×2{% if not loop.last %}, {% endif %}{% endfor %}
             {% endif %}
           </p>
+          {% if is_barbell %}
+          <a id="plate-calc-link" href="{{ url_for('fitness.plates') }}?weight={{ prefill.weight or '' }}"
+             class="block text-[10px] text-center text-pulse hover:underline mt-0.5">Plate calculator →</a>
+          {% endif %}
         </div>
         <div class="log-set-field">
           <label class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1 text-center">Reps</label>
@@ -285,9 +306,17 @@
   <span class="text-sm text-slate-300">Set logged ✓</span>
   <button type="button" id="undo-set-btn" class="text-xs font-display uppercase text-rose-400">Undo</button>
 </div>
+
+<div id="pr-celebration" class="hidden fixed inset-x-4 top-24 z-[60] mx-auto max-w-sm p-4 rounded-2xl bg-gradient-to-r from-pulse/20 to-neon/20 border border-neon/50 shadow-glow-cyan text-center pointer-events-none">
+  <p class="text-[10px] font-display uppercase tracking-widest text-neon mb-1">Personal Record 🎉</p>
+  <p data-pr-msg class="text-sm font-display font-bold text-slate-100"></p>
+</div>
 {% endblock %}
 {% endif %}
 
 {% block scripts %}
+{% if next_exercise %}
+<script id="next-exercise-data" type="application/json">{{ {"name": next_exercise|ex_display, "url": url_for('fitness.log_exercise', session_id=session.id, exercise_id=next_exercise.id), "icon": next_exercise_icon}|tojson }}</script>
+{% endif %}
 <script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 {% endblock %}

@@ -6,14 +6,9 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Train', url_for('fitness.index')), ('Plan Workout', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-4">
-  <h1 class="text-2xl font-display font-bold">
-    {% if routine %}Edit Workout Plan{% elif split %}Customize {{ split.name }}{% else %}Plan a Workout{% endif %}
-  </h1>
-  <p class="text-xs text-slate-500 mt-0.5">
-    Add or remove exercises, preview your plan, then save for later or start when ready — no logging required.
-  </p>
-</div>
+{% with title='Plan a Workout' if not routine and not split else ('Edit Workout Plan' if routine else 'Customize ' ~ split.name), subtitle='Add or remove exercises, preview your plan, then save for later or start when ready — no logging required.' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 {# Live preview #}
 <div id="plan-preview" class="mb-6 p-4 rounded-2xl border border-neon/30 bg-neon/5">

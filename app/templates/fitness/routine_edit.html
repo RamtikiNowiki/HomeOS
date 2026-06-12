@@ -5,9 +5,9 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Saved Routines', url_for('fitness.routines')), (routine.name if routine else 'New', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">{{ routine.name if routine else 'New Routine' }}</h1>
-</div>
+{% with title=(routine.name if routine else 'New Routine'), subtitle='Edit exercises, sets, and reps for this saved plan' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 <form method="post" id="routine-form">
   <div class="p-4 rounded-2xl bg-panel border border-edge mb-4 space-y-3">

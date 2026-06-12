@@ -6,16 +6,12 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Saved Routines', url_for('fitness.routines')), (routine.name, none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6">
-  <h1 class="text-2xl font-display font-bold">{{ routine.name }}</h1>
-  <p class="text-xs text-slate-500 mt-0.5">
-    {{ entries|length }} exercise{{ 's' if entries|length != 1 }} · saved plan — start when you're ready
-    {% if routine.split_key %} · from {{ routine.split_key|replace('_',' ')|title }} template{% endif %}
-  </p>
-</div>
+{% with title=routine.name, subtitle=(entries|length ~ ' exercise' ~ ('s' if entries|length != 1 else '') ~ ' · saved plan — start when you\'re ready' ~ (' · from ' ~ routine.split_key|replace('_',' ')|title ~ ' template' if routine.split_key else '')) %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
 
 <div class="mb-6 p-4 rounded-2xl border border-neon/30 bg-neon/5">
-  <p class="text-xs font-display font-bold uppercase tracking-widest text-neon mb-3">Workout preview</p>
+  {% with label='Workout preview' %}{% include "fitness/_section_header.html" %}{% endwith %}
   {% if entries %}
     <ol class="space-y-2">
       {% for entry in entries %}

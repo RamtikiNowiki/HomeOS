@@ -1,6 +1,8 @@
 from datetime import datetime, date, timedelta
+import csv
+import io
 
-from flask import abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import abort, flash, jsonify, make_response, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
@@ -14,13 +16,20 @@ from .catalog import (
     MUSCLE_GROUPS,
     STARTER_EXERCISES,
     WORKOUT_SPLITS,
+    BEGINNER_EXERCISES,
     catalog_entry,
     catalog_for_muscle_group,
+    display_name_for_exercise,
     get_split,
+    icon_slug_for_exercise,
     infer_split_key_from_name,
+    is_barbell_exercise,
+    is_beginner_exercise,
 )
 from .service import (
+    check_set_beats_pr,
     get_program_week,
+    import_beginner_library,
     import_catalog_exercises,
     import_split_exercises,
     import_starter_library,
@@ -35,6 +44,7 @@ from .service import (
     suggest_next_exercise,
     default_muscle_filter_for_session,
     user_exercise_names,
+    workout_streak_stats,
 )
 
 
@@ -89,6 +99,7 @@ def _plan_tray_payload(session: WorkoutSession, current_exercise_id: int | None 
     progress = session_plan_progress(session)
     if not progress:
         return []
+    theme = "pink" if getattr(current_user, "accent", None) == "pink" else "blue"
     done_ids = {ex.id for ex in progress.get("done", [])}
     skipped = progress.get("skipped", [])
     remaining = progress.get("remaining", [])
@@ -97,9 +108,12 @@ def _plan_tray_payload(session: WorkoutSession, current_exercise_id: int | None 
     for ex in progress.get("recommended", []):
         if ex in skipped:
             continue
+        slug = icon_slug_for_exercise(ex.name, ex.muscle_group)
         tray.append({
             "id": ex.id,
             "name": ex.name,
+            "display_name": display_name_for_exercise(ex.name),
+            "icon": f"img/px/{theme}/{slug}.png",
             "url": url_for("fitness.log_exercise", session_id=session.id, exercise_id=ex.id),
             "priority": ex.id == next_id and ex.id != current_exercise_id,
             "current": ex.id == current_exercise_id,
@@ -183,6 +197,7 @@ def index():
 
     week = get_program_week(current_user.id)
     today_program = week[datetime.now().weekday()]
+    streak = workout_streak_stats(current_user.id)
 
     return render_template(
         "fitness/index.html",
@@ -198,6 +213,7 @@ def index():
         next_exercise=next_exercise,
         last_exercise=last_exercise,
         today_program=today_program,
+        streak=streak,
     )
 
 
@@ -483,6 +499,11 @@ def log_exercise(session_id: int, exercise_id: int):
     planned_id_set = set(session.planned_ids())
 
     tray_exercises = _plan_tray_payload(session, exercise.id)
+    next_ex_icon = None
+    if nxt:
+        slug = icon_slug_for_exercise(nxt.name, nxt.muscle_group)
+        theme = "pink" if getattr(current_user, "accent", None) == "pink" else "blue"
+        next_ex_icon = f"img/px/{theme}/{slug}.png"
 
     return render_template(
         "fitness/log_exercise.html",
@@ -492,7 +513,10 @@ def log_exercise(session_id: int, exercise_id: int):
         previous=previous,
         prefill=prefill,
         next_exercise=nxt,
+        next_exercise_icon=next_ex_icon,
         plate_hint=plate_hint,
+        is_barbell=is_barbell_exercise(exercise.name),
+        exercise_display_name=display_name_for_exercise(exercise.name),
         progress=progress,
         extra_exercises=extra_exercises,
         tray_exercises=tray_exercises,
@@ -543,6 +567,8 @@ def add_set(session_id: int, exercise_id: int):
     db.session.add(workout_set)
     db.session.commit()
 
+    pr_hit = check_set_beats_pr(exercise, weight, reps, is_warmup)
+
     if _wants_json():
         plate_hint = calculate_plates(weight, DEFAULT_BAR_LB)
         return jsonify({
@@ -550,6 +576,7 @@ def add_set(session_id: int, exercise_id: int):
             "set_count": len(session.sets_for_exercise(exercise.id)),
             "plate_hint": plate_hint,
             "prefill": {"weight": weight, "reps": reps, "rpe": rpe or ""},
+            "pr": pr_hit,
         })
 
     return redirect(
@@ -750,6 +777,7 @@ def catalog():
         by_group=by_group,
         owned=owned,
         total_catalog=len(EXERCISE_CATALOG),
+        beginner_count=len(BEGINNER_EXERCISES),
         library_count=len(owned),
     )
 
@@ -777,6 +805,17 @@ def catalog_import_starter():
         flash(f"Imported {added} exercises into your library.", "success")
     else:
         flash("Your library already has all starter exercises.", "success")
+    return redirect(request.form.get("next") or url_for("fitness.catalog"))
+
+
+@fitness_bp.route("/catalog/import-beginner", methods=["POST"])
+@login_required
+def catalog_import_beginner():
+    added, skipped = import_beginner_library(current_user.id)
+    if added:
+        flash(f"Imported {added} beginner-friendly exercises (mostly machines).", "success")
+    else:
+        flash("Your library already has all beginner exercises.", "success")
     return redirect(request.form.get("next") or url_for("fitness.catalog"))
 
 
@@ -870,6 +909,37 @@ def history():
         .all()
     )
     return render_template("fitness/history.html", sessions=sessions)
+
+
+@fitness_bp.route("/history/export.csv")
+@login_required
+def history_export_csv():
+    sessions = (
+        WorkoutSession.query.filter_by(user_id=current_user.id)
+        .filter(WorkoutSession.finished_at.isnot(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .all()
+    )
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["session_date", "session_name", "exercise", "muscle_group", "set", "weight_lb", "reps", "rpe", "warmup"])
+    for session in sessions:
+        for ws in session.sets.order_by(WorkoutSet.id).all():
+            writer.writerow([
+                session.started_at.strftime("%Y-%m-%d"),
+                session.name,
+                ws.exercise.name if ws.exercise else "",
+                ws.exercise.muscle_group if ws.exercise else "",
+                ws.set_number,
+                ws.weight,
+                ws.reps,
+                ws.rpe or "",
+                "yes" if ws.is_warmup else "no",
+            ])
+    resp = make_response(buf.getvalue())
+    resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+    resp.headers["Content-Disposition"] = 'attachment; filename="workout-history.csv"'
+    return resp
 
 
 # ---------------------------------------------------------------------------

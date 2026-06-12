@@ -5,18 +5,17 @@
 {% set crumbs = [('Fitness', url_for('fitness.index')), ('Tools', url_for('fitness.tools')), ('Weekly Program', none)] %}
 {% include "fitness/_breadcrumb.html" %}
 
-<div class="mb-6 flex items-start justify-between gap-3">
-  <div>
-    <h1 class="text-2xl font-display font-bold">Weekly Program</h1>
-    <p class="text-xs text-slate-500 mt-0.5">Plan your training week</p>
-  </div>
-  {% set today_plan = week[today_dow] %}
-  {% if today_plan and today_plan.label != 'Rest' %}
-  <form action="{{ url_for('fitness.program_start_today') }}" method="post">
-    <button type="submit" class="shrink-0 px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start Today</button>
-  </form>
-  {% endif %}
-</div>
+{% with title='Weekly Program', subtitle='Plan your training week' %}
+{% include "fitness/_page_header.html" %}
+{% endwith %}
+{% set today_plan = week[today_dow] %}
+{% if today_plan and today_plan.label != 'Rest' %}
+<form action="{{ url_for('fitness.program_start_today') }}" method="post" class="mb-6 -mt-2 flex justify-end">
+  <button type="submit" class="px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start Today</button>
+</form>
+{% else %}
+<div class="mb-6"></div>
+{% endif %}
 
 <form method="post" class="space-y-3 mb-6">
   {% for i in range(7) %}

@@ -2,7 +2,8 @@ from flask import render_template
 from flask_login import current_user, login_required
 
 from ..models import WeightLog, WorkoutSession
-from ..fitness.service import last_logged_exercise, suggest_next_exercise
+from ..fitness.service import last_logged_exercise, suggest_next_exercise, get_program_week, workout_streak_stats
+from datetime import datetime
 from ..home_assistant.service import HomeAssistantService
 from ..creality_k2.service import CrealityK2Service
 from . import main_bp
@@ -66,6 +67,10 @@ def dashboard():
 
     printer = CrealityK2Service().get_status()
 
+    week = get_program_week(current_user.id)
+    today_program = week[datetime.now().weekday()]
+    streak = workout_streak_stats(current_user.id)
+
     return render_template(
         "dashboard.html",
         weight=_weight_trend(current_user.id),
@@ -73,6 +78,8 @@ def dashboard():
         active_session=active_session,
         next_exercise=next_exercise,
         last_exercise=last_exercise,
+        today_program=today_program,
+        streak=streak,
         lights=lights,
         lights_on=lights_on,
         sensor=sensor,

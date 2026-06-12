@@ -72,7 +72,14 @@
     <p class="font-display font-bold text-sm text-slate-100">Body Weight</p>
     <p class="text-[10px] text-slate-500 mt-1">Weigh-in log & trend</p>
   </a>
-  <a href="{{ url_for('fitness.plates') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors col-span-2 sm:col-span-1">
+  <a href="{{ url_for('fitness.history') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+    <span class="w-9 h-9 mb-2 grid place-items-center rounded-xl bg-neon/10 border border-neon/30 text-neon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </span>
+    <p class="font-display font-bold text-sm text-slate-100">Workout History</p>
+    <p class="text-[10px] text-slate-500 mt-1">Past sessions · export CSV</p>
+  </a>
+  <a href="{{ url_for('fitness.plates') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
     <span class="w-9 h-9 mb-2 grid place-items-center rounded-xl bg-neon/10 border border-neon/30">
       <img src="{{ url_for('static', filename='img/px/' + px_theme + '/barbell.png') }}" alt="" width="24" height="16" class="pixel-icon">
     </span>

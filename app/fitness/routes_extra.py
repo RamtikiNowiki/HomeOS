@@ -390,7 +390,8 @@ def charts():
 @login_required
 def plates():
     result = None
-    target = bar = DEFAULT_BAR
+    target = request.args.get("weight", type=float) or DEFAULT_BAR
+    bar = DEFAULT_BAR
     if request.method == "POST":
         try:
             target = float(request.form.get("target", 0))
@@ -399,4 +400,6 @@ def plates():
             flash("Enter valid numbers.", "error")
         else:
             result = calculate_plates(target, bar)
+    elif request.args.get("weight"):
+        result = calculate_plates(target, bar)
     return render_template("fitness/plates.html", result=result, target=target, bar=bar)

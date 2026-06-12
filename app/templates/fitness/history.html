@@ -9,6 +9,12 @@
 {% with title='History', subtitle=(sessions|length ~ ' completed session' ~ ('s' if sessions|length != 1 else '')), action_url=url_for('fitness.index') ~ '#start', action_label='Start New Workout' %}
 {% include "fitness/_page_header.html" %}
 {% endwith %}
+<p class="mb-4">
+  <a href="{{ url_for('fitness.history_export_csv') }}"
+     class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-display uppercase tracking-widest border border-edge bg-panel text-slate-400 hover:border-neon/40 hover:text-neon transition-colors">
+    Export CSV
+  </a>
+</p>
 
 {% if sessions %}
 <div class="space-y-3 stagger-in">
