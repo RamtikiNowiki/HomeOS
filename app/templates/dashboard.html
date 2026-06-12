@@ -11,15 +11,42 @@
 </div>
 
 {% if active_session %}
-<a href="{{ url_for('fitness.session_detail', session_id=active_session.id) }}"
-   class="block mb-6 p-4 rounded-2xl border border-neon/40 bg-neon/5 hover:bg-neon/10 transition-colors">
-  <div class="flex items-center gap-3">
-    <span class="w-2.5 h-2.5 rounded-full bg-neon dot-pulse"></span>
-    <div class="flex-1">
+<div class="mb-6 p-4 rounded-2xl border border-neon/40 bg-neon/5">
+  <div class="flex items-start gap-3 mb-3">
+    <span class="w-2.5 h-2.5 rounded-full bg-neon dot-pulse shrink-0 mt-1.5"></span>
+    <div class="flex-1 min-w-0">
       <p class="text-sm font-semibold text-neon">Workout in progress — {{ active_session.name }}</p>
-      <p class="text-xs text-slate-400">{{ active_session.total_sets }} sets logged · tap to resume</p>
+      <p class="text-xs text-slate-400">{{ active_session.elapsed_minutes }} min · {{ active_session.total_sets }} sets</p>
     </div>
-    <svg class="text-neon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+  <div class="flex gap-2">
+    {% if next_exercise %}
+    <a href="{{ url_for('fitness.log_exercise', session_id=active_session.id, exercise_id=next_exercise.id) }}"
+       class="flex-1 py-2.5 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">
+      Continue — {{ next_exercise.name|truncate(16, True, '…') }}
+    </a>
+    {% else %}
+    <a href="{{ url_for('fitness.session_detail', session_id=active_session.id) }}"
+       class="flex-1 py-2.5 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">
+      Resume Workout
+    </a>
+    {% endif %}
+    <form action="{{ url_for('fitness.discard_session', session_id=active_session.id) }}" method="post"
+          data-confirm="Discard this workout?">
+      <button type="submit" class="px-4 py-2.5 rounded-xl text-xs text-rose-400 border border-rose-500/30 hover:bg-rose-500/10">Discard</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<a href="{{ url_for('fitness.index') }}#start"
+   class="block mb-6 p-5 rounded-2xl border border-neon/30 bg-gradient-to-r from-pulse/10 to-neon/10 hover:border-neon/50 transition-all">
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <p class="text-[10px] font-display uppercase tracking-widest text-neon mb-1">Ready to lift?</p>
+      <p class="font-display font-bold text-xl text-slate-100">Start a Workout</p>
+      <p class="text-xs text-slate-400 mt-1">Routines, templates, or quick-start any exercise</p>
+    </div>
+    <span class="shrink-0 w-12 h-12 rounded-xl bg-neon/15 border border-neon/40 grid place-items-center text-neon text-xl font-display font-bold">→</span>
   </div>
 </a>
 {% endif %}
@@ -59,33 +86,37 @@
   </a>
 
   <!-- Last workout -->
-  <a href="{{ url_for('fitness.history') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-neon/50 transition-colors">
+  <div class="group p-5 rounded-2xl bg-panel border border-edge shadow-card">
     <div class="flex items-center justify-between mb-3">
       <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">Last Workout</p>
-      <svg class="text-slate-600 group-hover:text-neon transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5"/><path d="M21 21l-1.5-1.5M3 3l1.5 1.5M9.5 3.5 3.5 9.5M20.5 14.5l-6 6M18 2l4 4M2 18l4 4"/></svg>
+      <a href="{{ url_for('fitness.history') }}" class="text-[10px] font-display uppercase tracking-widest text-slate-500 hover:text-neon">All history →</a>
     </div>
     {% if last_session %}
-      <p class="text-lg font-semibold text-slate-100">{{ last_session.name }}</p>
-      <p class="text-xs text-slate-500 mt-0.5">{{ last_session.started_at.strftime('%A, %b %d') }}</p>
-      <div class="flex gap-4 mt-3">
-        <div>
-          <p class="text-xl font-display font-bold text-neon">{{ last_session.total_sets }}</p>
-          <p class="text-[10px] uppercase tracking-widest text-slate-500">sets</p>
+      <a href="{{ url_for('fitness.session_detail', session_id=last_session.id) }}" class="block hover:opacity-90 transition-opacity">
+        <p class="text-lg font-semibold text-slate-100 group-hover:text-neon transition-colors">{{ last_session.name }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">{{ last_session.started_at.strftime('%A, %b %d') }}</p>
+        <div class="flex gap-4 mt-3">
+          <div>
+            <p class="text-xl font-display font-bold text-neon">{{ last_session.total_sets }}</p>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500">sets</p>
+          </div>
+          <div>
+            <p class="text-xl font-display font-bold text-neon">{{ last_session.total_volume|kg }}</p>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500">kg volume</p>
+          </div>
+          <div>
+            <p class="text-xl font-display font-bold text-neon">{{ last_session.exercises_performed|length }}</p>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500">exercises</p>
+          </div>
         </div>
-        <div>
-          <p class="text-xl font-display font-bold text-neon">{{ last_session.total_volume|kg }}</p>
-          <p class="text-[10px] uppercase tracking-widest text-slate-500">kg volume</p>
-        </div>
-        <div>
-          <p class="text-xl font-display font-bold text-neon">{{ last_session.exercises_performed|length }}</p>
-          <p class="text-[10px] uppercase tracking-widest text-slate-500">exercises</p>
-        </div>
-      </div>
+      </a>
     {% else %}
       <p class="text-lg font-semibold text-slate-600">No sessions yet</p>
-      <p class="text-xs text-slate-500 mt-2">Head to the Workout tab to start your first session.</p>
+      <a href="{{ url_for('fitness.index') }}#start" class="inline-block mt-2 text-xs font-display uppercase tracking-widest text-neon hover:underline">
+        Start your first workout →
+      </a>
     {% endif %}
-  </a>
+  </div>
 
   <!-- Smart home -->
   <a href="{{ url_for('home_assistant.panel') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-amber-400/50 transition-colors">
@@ -125,4 +156,8 @@
     </div>
   </a>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 {% endblock %}

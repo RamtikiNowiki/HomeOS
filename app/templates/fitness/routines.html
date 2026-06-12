@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block title %}My Routines{% endblock %}
 {% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Tools', url_for('fitness.tools')), ('Routines', none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
 <div class="mb-6 flex items-start justify-between gap-3">
   <div>
-    <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
-    <h1 class="text-2xl font-display font-bold mt-1">My Routines</h1>
+    <h1 class="text-2xl font-display font-bold">My Routines</h1>
     <p class="text-xs text-slate-500 mt-0.5">Saved workout templates — one tap to start</p>
   </div>
   <a href="{{ url_for('fitness.routine_new') }}"
@@ -17,11 +20,11 @@
   {% for routine in routines %}
     <div class="p-4 rounded-2xl bg-panel border border-edge">
       <div class="flex items-start justify-between gap-3 mb-2">
-        <div>
+        <div class="min-w-0">
           <p class="font-semibold text-slate-100">{{ routine.name }}</p>
           <p class="text-xs text-slate-500">{{ routine.entries.count() }} exercises{% if routine.split_key %} · {{ routine.split_key|replace('_',' ')|title }}{% endif %}</p>
         </div>
-        <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post">
+        <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post" class="shrink-0">
           <button type="submit" class="px-4 py-2 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start</button>
         </form>
       </div>
@@ -30,17 +33,24 @@
           <span class="px-2 py-1 rounded-lg text-xs bg-raised border border-edge text-slate-500">{{ entry.exercise.name }}</span>
         {% endfor %}
       </div>
-      <div class="flex gap-3 text-xs">
-        <a href="{{ url_for('fitness.routine_edit', routine_id=routine.id) }}" class="text-pulse hover:underline">Edit</a>
-        <form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" onsubmit="return confirm('Delete this routine?');">
-          <button type="submit" class="text-rose-500 hover:underline">Delete</button>
+      <div class="flex items-center gap-2">
+        <a href="{{ url_for('fitness.routine_edit', routine_id=routine.id) }}"
+           class="flex-1 py-2 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-raised border border-edge text-slate-400 hover:border-pulse/50">
+          Edit
+        </a>
+        <form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" class="flex-1"
+              data-confirm="Delete routine “{{ routine.name }}”?">
+          <button type="submit"
+                  class="w-full py-2 rounded-xl text-xs font-display uppercase tracking-widest text-rose-400 border border-rose-500/30 hover:bg-rose-500/10">
+            Delete
+          </button>
         </form>
       </div>
     </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500 mb-8">No saved routines yet. Finish a workout and save it, or create one from scratch.</p>
+<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500 mb-8">No saved routines yet. Build one on the Workout tab or finish a session and save it.</p>
 {% endif %}
 
 <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Repeat Last Session</h2>
@@ -57,4 +67,8 @@
     {% endif %}
   {% endfor %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 {% endblock %}

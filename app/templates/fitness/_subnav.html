@@ -1,0 +1,24 @@
+{# Persistent fitness section tabs — always visible inside the Workout area #}
+<nav class="fitness-subnav mb-5" aria-label="Fitness sections">
+  <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-panel border border-edge">
+    <a href="{{ fitness_workout_url }}"
+       class="fitness-subnav-link {{ 'is-active' if fitness_tab == 'train' else '' }}">
+      {% if has_active_workout %}
+        <span class="w-1.5 h-1.5 rounded-full bg-neon dot-pulse shrink-0" aria-hidden="true"></span>
+      {% endif %}
+      <span>{% if has_active_workout %}Resume{% else %}Train{% endif %}</span>
+    </a>
+    <a href="{{ url_for('fitness.history') }}"
+       class="fitness-subnav-link {{ 'is-active' if fitness_tab == 'history' else '' }}">
+      History
+    </a>
+    <a href="{{ url_for('fitness.stats') }}"
+       class="fitness-subnav-link {{ 'is-active' if fitness_tab == 'stats' else '' }}">
+      Stats
+    </a>
+    <a href="{{ url_for('fitness.tools') }}"
+       class="fitness-subnav-link {{ 'is-active' if fitness_tab == 'tools' else '' }}">
+      Tools
+    </a>
+  </div>
+</nav>

@@ -2,6 +2,7 @@ from flask import render_template
 from flask_login import current_user, login_required
 
 from ..models import WeightLog, WorkoutSession
+from ..fitness.service import last_logged_exercise, suggest_next_exercise
 from ..home_assistant.service import HomeAssistantService
 from ..creality_k2.service import CrealityK2Service
 from . import main_bp
@@ -52,6 +53,11 @@ def dashboard():
         .order_by(WorkoutSession.started_at.desc())
         .first()
     )
+    next_exercise = None
+    last_exercise = None
+    if active_session:
+        last_exercise = last_logged_exercise(active_session)
+        next_exercise = suggest_next_exercise(active_session)
 
     ha = HomeAssistantService()
     lights = ha.get_lights()
@@ -65,6 +71,8 @@ def dashboard():
         weight=_weight_trend(current_user.id),
         last_session=last_session,
         active_session=active_session,
+        next_exercise=next_exercise,
+        last_exercise=last_exercise,
         lights=lights,
         lights_on=lights_on,
         sensor=sensor,

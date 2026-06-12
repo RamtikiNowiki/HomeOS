@@ -34,4 +34,31 @@ def create_app(config_object=None) -> Flask:
             return "—"
         return f"{value:g}"
 
+    @app.context_processor
+    def inject_workout_nav():
+        from flask import request, url_for
+        from flask_login import current_user
+
+        if not current_user.is_authenticated:
+            return {
+                "has_active_workout": False,
+                "active_workout": None,
+                "fitness_workout_url": url_for("fitness.index"),
+                "fitness_tab": None,
+            }
+
+        from .fitness.nav import fitness_tab_for_endpoint, workout_entry_url
+        from .models import WorkoutSession
+
+        active = WorkoutSession.query.filter_by(
+            user_id=current_user.id, finished_at=None
+        ).first()
+        tab = fitness_tab_for_endpoint(request.endpoint)
+        return {
+            "has_active_workout": active is not None,
+            "active_workout": active,
+            "fitness_workout_url": workout_entry_url(active),
+            "fitness_tab": tab,
+        }
+
     return app

@@ -195,6 +195,56 @@ def routine_edit(routine_id: int):
     )
 
 
+@fitness_bp.route("/routines/quick", methods=["POST"])
+@login_required
+def routine_quick_create():
+    """Create a routine from selected exercises and optionally start it."""
+    name = request.form.get("name", "").strip()
+    exercise_ids = [int(x) for x in request.form.getlist("exercise_id") if x.isdigit()]
+    start_now = request.form.get("start") == "1"
+
+    if not name:
+        flash("Routine name is required.", "error")
+        return redirect(request.form.get("next") or url_for("fitness.index"))
+
+    routine = WorkoutRoutine(user_id=current_user.id, name=name)
+    db.session.add(routine)
+    db.session.flush()
+
+    order = 0
+    seen = set()
+    for eid in exercise_ids:
+        if eid in seen:
+            continue
+        ex = db.session.get(Exercise, eid)
+        if ex is None or ex.user_id != current_user.id:
+            continue
+        seen.add(eid)
+        order += 1
+        db.session.add(
+            WorkoutRoutineExercise(
+                routine_id=routine.id,
+                exercise_id=ex.id,
+                sort_order=order,
+                target_sets=3,
+            )
+        )
+
+    if order == 0:
+        db.session.rollback()
+        flash("Pick at least one exercise for the routine.", "error")
+        return redirect(request.form.get("next") or url_for("fitness.index"))
+
+    db.session.commit()
+    flash(f"Saved routine “{name}”.", "success")
+
+    if start_now:
+        session = start_session_from_routine(current_user.id, routine)
+        return redirect(url_for("fitness.session_detail", session_id=session.id))
+
+    return redirect(url_for("fitness.routines"))
+
+
 @fitness_bp.route("/routines/<int:routine_id>/delete", methods=["POST"])
 @login_required
 def routine_delete(routine_id: int):

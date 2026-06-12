@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Plate Calculator{% endblock %}
 {% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Tools', url_for('fitness.tools')), ('Plates', none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
 <div class="mb-6">
-  <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
-  <h1 class="text-2xl font-display font-bold mt-1">Plate Calculator</h1>
+  <h1 class="text-2xl font-display font-bold">Plate Calculator</h1>
   <p class="text-xs text-slate-500 mt-0.5">Metric plates · per side</p>
 </div>
 

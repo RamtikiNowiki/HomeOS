@@ -146,3 +146,53 @@ html:not(.dark) .text-slate-100 { color: #0f172a; }
 html:not(.dark) .text-slate-200 { color: #1e293b; }
 
 .chart-wrap { position: relative; height: 220px; }
+
+.stepper-btn {
+  min-width: 2.75rem;
+  padding: 0.5rem 0.35rem;
+  border-radius: 0.75rem;
+  font-size: 0.65rem;
+  font-family: "Chakra Petch", sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  color: var(--text-muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+.stepper-btn:active { transform: scale(0.96); }
+.stepper-btn:hover { color: var(--neon); border-color: rgba(56, 232, 255, 0.4); }
+
+.log-set-sticky { bottom: 0; }
+
+/* Fitness section tabs */
+.fitness-subnav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.75rem;
+  font-family: "Chakra Petch", sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.fitness-subnav-link:hover {
+  color: var(--neon);
+  background: rgba(56, 232, 255, 0.06);
+}
+.fitness-subnav-link.is-active {
+  color: var(--neon);
+  background: rgba(56, 232, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(56, 232, 255, 0.25);
+}
+html:not(.dark) .fitness-subnav-link.is-active {
+  background: rgba(8, 145, 178, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.25);
+}

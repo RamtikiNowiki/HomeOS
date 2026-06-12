@@ -1,9 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ routine.name if routine else 'New Routine' }}{% endblock %}
 {% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Tools', url_for('fitness.tools')), ('Routines', url_for('fitness.routines')), (routine.name if routine else 'New', none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
 <div class="mb-6">
-  <a href="{{ url_for('fitness.routines') }}" class="text-xs text-slate-500 hover:text-neon">← Routines</a>
-  <h1 class="text-2xl font-display font-bold mt-1">{{ routine.name if routine else 'New Routine' }}</h1>
+  <h1 class="text-2xl font-display font-bold">{{ routine.name if routine else 'New Routine' }}</h1>
 </div>
 
 <form method="post" id="routine-form">
@@ -52,6 +55,15 @@
   </button>
 </form>
 
+{% if routine %}
+<form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" class="mt-4"
+      data-confirm="Delete routine “{{ routine.name }}”? This cannot be undone.">
+  <button type="submit" class="w-full py-3 rounded-xl text-xs font-display uppercase tracking-widest text-rose-400 border border-rose-500/30 hover:bg-rose-500/10">
+    Delete Routine
+  </button>
+</form>
+{% endif %}
+
 <template id="exercise-row-template">
   <div class="routine-row flex flex-col sm:flex-row gap-2 p-3 rounded-xl bg-panel border border-edge">
     <select name="exercise_id" required class="flex-1 px-3 py-2 rounded-lg bg-raised border border-edge text-sm exercise-select">
@@ -67,6 +79,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 <script>
   const container = document.getElementById("routine-rows");
   const tpl = document.getElementById("exercise-row-template");

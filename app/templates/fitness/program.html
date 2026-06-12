@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Weekly Program{% endblock %}
 {% block content %}
+{% include "fitness/_subnav.html" %}
+{% set crumbs = [('Tools', url_for('fitness.tools')), ('Program', none)] %}
+{% include "fitness/_breadcrumb.html" %}
+
 <div class="mb-6 flex items-start justify-between gap-3">
   <div>
-    <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
-    <h1 class="text-2xl font-display font-bold mt-1">Weekly Program</h1>
+    <h1 class="text-2xl font-display font-bold">Weekly Program</h1>
     <p class="text-xs text-slate-500 mt-0.5">Plan your training week</p>
   </div>
   {% set today_plan = week[today_dow] %}

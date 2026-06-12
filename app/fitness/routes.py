@@ -6,6 +6,7 @@ from sqlalchemy import func
 
 from ..extensions import db
 from ..models import Exercise, WeightLog, WorkoutSession, WorkoutSet, WorkoutRoutine, WorkoutRoutineExercise, UserProgramDay, utcnow
+from .plates import calculate_plates
 from . import fitness_bp
 from .catalog import (
     EXERCISE_CATALOG,
@@ -17,13 +18,17 @@ from .catalog import (
     get_split,
 )
 from .service import (
+    get_program_week,
     import_catalog_exercises,
     import_split_exercises,
     import_starter_library,
+    last_logged_exercise,
     next_exercise_in_session,
     resolve_split_exercises,
     routine_progress,
+    session_plan_progress,
     split_progress,
+    suggest_next_exercise,
     user_exercise_names,
 )
 
@@ -64,6 +69,29 @@ def _parse_set_form() -> tuple[float, int, float | None, bool]:
     if rpe is not None and not (6 <= rpe <= 10):
         raise ValueError
     return weight, reps, rpe, is_warmup
+
+
+def _wants_json() -> bool:
+    return (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.accept_mimetypes.best_match(["application/json", "text/html"])
+        == "application/json"
+    )
+
+
+def _set_to_json(workout_set: WorkoutSet) -> dict:
+    return {
+        "id": workout_set.id,
+        "set_number": workout_set.set_number,
+        "weight": workout_set.weight,
+        "reps": workout_set.reps,
+        "rpe": workout_set.rpe,
+        "is_warmup": workout_set.is_warmup,
+        "completed": workout_set.completed,
+        "toggle_url": url_for("fitness.toggle_set", set_id=workout_set.id),
+        "edit_url": url_for("fitness.edit_set", set_id=workout_set.id),
+        "delete_url": url_for("fitness.delete_set", set_id=workout_set.id),
+    }
 
 
 def _ensure_active_session() -> WorkoutSession:
@@ -111,6 +139,22 @@ def index():
         .order_by(WeightLog.log_date.desc())
         .first()
     )
+    routines = (
+        WorkoutRoutine.query.filter_by(user_id=current_user.id)
+        .order_by(WorkoutRoutine.name)
+        .all()
+    )
+    progress = None
+    next_exercise = None
+    last_exercise = None
+    if active_session:
+        progress = session_plan_progress(active_session)
+        last_exercise = last_logged_exercise(active_session)
+        next_exercise = suggest_next_exercise(active_session)
+
+    week = get_program_week(current_user.id)
+    today_program = week[datetime.now().weekday()]
+
     return render_template(
         "fitness/index.html",
         active_session=active_session,
@@ -120,7 +164,18 @@ def index():
         splits=WORKOUT_SPLITS,
         muscle_groups=MUSCLE_GROUPS,
         starter_count=len(STARTER_EXERCISES),
+        routines=routines,
+        progress=progress,
+        next_exercise=next_exercise,
+        last_exercise=last_exercise,
+        today_program=today_program,
     )
+
+
+@fitness_bp.route("/tools")
+@login_required
+def tools():
+    return render_template("fitness/tools.html")
 
 
 @fitness_bp.route("/session/start", methods=["POST"])
@@ -177,6 +232,7 @@ def session_detail(session_id: int):
         split_info = get_split(session.workout_type)
     recommended_ids = {ex.id for ex in progress["recommended"]} if progress else set()
     other_exercises = [ex for ex in exercises if ex.id not in recommended_ids]
+    next_exercise = suggest_next_exercise(session) if session.is_active else None
     return render_template(
         "fitness/session.html",
         session=session,
@@ -185,6 +241,7 @@ def session_detail(session_id: int):
         progress=progress,
         split_info=split_info,
         other_exercises=other_exercises,
+        next_exercise=next_exercise,
     )
 
 
@@ -215,17 +272,41 @@ def update_session_notes(session_id: int):
     notes = request.form.get("notes", "").strip() or None
     session.notes = notes
     db.session.commit()
+    if _wants_json():
+        return jsonify({"ok": True, "notes": notes or ""})
     flash("Session notes saved.", "success")
     return redirect(url_for("fitness.session_detail", session_id=session.id))
+
+
+@fitness_bp.route("/session/<int:session_id>/discard", methods=["POST"])
+@login_required
+def discard_session(session_id: int):
+    """Abandon an in-progress workout without saving to history."""
+    session = _get_own_session(session_id)
+    if not session.is_active:
+        flash("This session is already finished.", "error")
+        return redirect(url_for("fitness.session_detail", session_id=session.id))
+    name = session.name
+    set_count = session.total_sets
+    db.session.delete(session)
+    db.session.commit()
+    flash(
+        f"Discarded “{name}”" + (f" ({set_count} sets removed)." if set_count else "."),
+        "success",
+    )
+    return redirect(url_for("fitness.index"))
 
 
 @fitness_bp.route("/session/<int:session_id>/delete", methods=["POST"])
 @login_required
 def delete_session(session_id: int):
     session = _get_own_session(session_id)
+    was_active = session.is_active
     db.session.delete(session)
     db.session.commit()
     flash("Session deleted.", "success")
+    if was_active:
+        return redirect(url_for("fitness.index"))
     return redirect(url_for("fitness.history"))
 
 
@@ -252,6 +333,7 @@ def log_exercise(session_id: int, exercise_id: int):
         prefill = {"weight": "", "reps": "", "rpe": ""}
 
     nxt = next_exercise_in_session(session, exercise.id, session.workout_type)
+    plate_hint = calculate_plates(float(prefill["weight"]), 20.0) if prefill.get("weight") else None
 
     return render_template(
         "fitness/log_exercise.html",
@@ -261,6 +343,7 @@ def log_exercise(session_id: int, exercise_id: int):
         previous=previous,
         prefill=prefill,
         next_exercise=nxt,
+        plate_hint=plate_hint,
     )
 
 
@@ -292,19 +375,28 @@ def add_set(session_id: int, exercise_id: int):
         )
 
     next_number = len(session.sets_for_exercise(exercise.id)) + 1
-    db.session.add(
-        WorkoutSet(
-            session_id=session.id,
-            exercise_id=exercise.id,
-            set_number=next_number,
-            reps=reps,
-            weight=weight,
-            rpe=rpe,
-            is_warmup=is_warmup,
-            completed=not is_warmup,
-        )
+    workout_set = WorkoutSet(
+        session_id=session.id,
+        exercise_id=exercise.id,
+        set_number=next_number,
+        reps=reps,
+        weight=weight,
+        rpe=rpe,
+        is_warmup=is_warmup,
+        completed=not is_warmup,
     )
+    db.session.add(workout_set)
     db.session.commit()
+
+    if _wants_json():
+        plate_hint = calculate_plates(weight, 20.0)
+        return jsonify({
+            "set": _set_to_json(workout_set),
+            "set_count": len(session.sets_for_exercise(exercise.id)),
+            "plate_hint": plate_hint,
+            "prefill": {"weight": weight, "reps": reps, "rpe": rpe or ""},
+        })
+
     return redirect(
         url_for("fitness.log_exercise", session_id=session.id, exercise_id=exercise.id)
     )
@@ -358,6 +450,8 @@ def delete_set(set_id: int):
     for i, s in enumerate(remaining, start=1):
         s.set_number = i
     db.session.commit()
+    if _wants_json():
+        return jsonify({"ok": True, "set_count": len(remaining)})
     return redirect(
         url_for("fitness.log_exercise", session_id=session_id, exercise_id=exercise_id)
     )
@@ -366,6 +460,35 @@ def delete_set(set_id: int):
 # ---------------------------------------------------------------------------
 # Exercise management
 # ---------------------------------------------------------------------------
+
+@fitness_bp.route("/exercises/search")
+@login_required
+def search_exercises():
+    """JSON search across the user's exercise library."""
+    q = request.args.get("q", "").strip().lower()
+    items = (
+        Exercise.query.filter_by(user_id=current_user.id)
+        .order_by(Exercise.muscle_group, Exercise.name)
+        .all()
+    )
+    if q:
+        items = [
+            ex
+            for ex in items
+            if q in ex.name.lower() or q in ex.muscle_group.lower()
+        ]
+    return jsonify([
+        {
+            "id": ex.id,
+            "name": ex.name,
+            "muscle_group": ex.muscle_group,
+            "log_url": url_for(
+                "fitness.quick_start_exercise", exercise_id=ex.id
+            ),
+        }
+        for ex in items[:30]
+    ])
+
 
 @fitness_bp.route("/exercises")
 @login_required
@@ -388,17 +511,36 @@ def create_exercise():
         return redirect(request.form.get("next") or url_for("fitness.index"))
 
     exists = Exercise.query.filter_by(user_id=current_user.id, name=name).first()
+    session_id = request.form.get("session_id", type=int)
     if exists:
         flash(f"“{name}” already exists in your library.", "error")
-    else:
-        db.session.add(
-            Exercise(user_id=current_user.id, name=name, muscle_group=muscle_group)
-        )
-        db.session.commit()
-        flash(f"“{name}” added to your library.", "success")
+        if session_id:
+            session = db.session.get(WorkoutSession, session_id)
+            if session and session.user_id == current_user.id and session.is_active:
+                return redirect(
+                    url_for(
+                        "fitness.log_exercise",
+                        session_id=session.id,
+                        exercise_id=exists.id,
+                    )
+                )
+        return redirect(request.form.get("next") or url_for("fitness.index"))
 
-    next_url = request.form.get("next") or url_for("fitness.index")
-    return redirect(next_url)
+    exercise = Exercise(user_id=current_user.id, name=name, muscle_group=muscle_group)
+    db.session.add(exercise)
+    db.session.commit()
+    flash(f"“{name}” added to your library.", "success")
+    if session_id:
+        session = _get_own_session(session_id)
+        if session.is_active:
+            return redirect(
+                url_for(
+                    "fitness.log_exercise",
+                    session_id=session.id,
+                    exercise_id=exercise.id,
+                )
+            )
+    return redirect(request.form.get("next") or url_for("fitness.index"))
 
 
 @fitness_bp.route("/exercises/<int:exercise_id>/edit", methods=["POST"])

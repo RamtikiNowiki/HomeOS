@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Fitness Tools{% endblock %}
+
+{% block content %}
+{% include "fitness/_subnav.html" %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-display font-bold">Tools</h1>
+  <p class="text-xs text-slate-500 mt-0.5">Library, planning, and utilities</p>
+</div>
+
+<div class="grid grid-cols-2 gap-3 mb-6">
+  <a href="{{ url_for('fitness.routines') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">My Routines</p>
+    <p class="text-[10px] text-slate-500 mt-1">Saved custom workouts</p>
+  </a>
+  <a href="{{ url_for('fitness.program') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Weekly Program</p>
+    <p class="text-[10px] text-slate-500 mt-1">Plan your training week</p>
+  </a>
+  <a href="{{ url_for('fitness.exercises') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Exercise Library</p>
+    <p class="text-[10px] text-slate-500 mt-1">Edit your exercises</p>
+  </a>
+  <a href="{{ url_for('fitness.catalog') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Catalog</p>
+    <p class="text-[10px] text-slate-500 mt-1">Import built-in exercises</p>
+  </a>
+  <a href="{{ url_for('fitness.weight') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Body Weight</p>
+    <p class="text-[10px] text-slate-500 mt-1">Weigh-in log</p>
+  </a>
+  <a href="{{ url_for('fitness.charts') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+    <p class="font-display font-bold text-sm text-slate-100">Charts</p>
+    <p class="text-[10px] text-slate-500 mt-1">Progress over time</p>
+  </a>
+  <a href="{{ url_for('fitness.plates') }}" class="p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors col-span-2 sm:col-span-1">
+    <p class="font-display font-bold text-sm text-slate-100">Plate Calculator</p>
+    <p class="text-[10px] text-slate-500 mt-1">Bar + plates per side</p>
+  </a>
+</div>
+{% endblock %}

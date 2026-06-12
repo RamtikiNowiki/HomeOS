@@ -1,0 +1,13 @@
+{# Optional breadcrumb trail — set `crumbs` to a list of (label, url|none) before including #}
+{% if crumbs %}
+<nav aria-label="Breadcrumb" class="flex items-center gap-1 text-xs text-slate-500 mb-4 flex-wrap">
+  {% for label, href in crumbs %}
+    {% if not loop.first %}<span class="text-slate-600 select-none" aria-hidden="true">›</span>{% endif %}
+    {% if href %}
+      <a href="{{ href }}" class="hover:text-neon transition-colors truncate max-w-[9rem] sm:max-w-none">{{ label }}</a>
+    {% else %}
+      <span class="text-slate-300 truncate max-w-[10rem] sm:max-w-none">{{ label }}</span>
+    {% endif %}
+  {% endfor %}
+</nav>
+{% endif %}

@@ -264,3 +264,31 @@ def get_program_week(user_id: int) -> list[UserProgramDay | None]:
 
 DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
+
+def session_plan_progress(session: WorkoutSession) -> dict | None:
+    """Split or routine progress for an active session."""
+    if session.routine_id and session.routine:
+        return routine_progress(session, session.routine)
+    if session.workout_type:
+        return split_progress(session, session.workout_type)
+    return None
+
+
+def last_logged_exercise(session: WorkoutSession) -> Exercise | None:
+    """Most recently logged exercise in this session."""
+    last_set = session.sets.order_by(WorkoutSet.id.desc()).first()
+    return last_set.exercise if last_set else None
+
+
+def suggest_next_exercise(session: WorkoutSession) -> Exercise | None:
+    """Best next exercise to log in this session."""
+    progress = session_plan_progress(session)
+    if progress and progress.get("remaining"):
+        return progress["remaining"][0]
+    last = last_logged_exercise(session)
+    if last:
+        return next_exercise_in_session(session, last.id, session.workout_type)
+    if progress and progress.get("recommended"):
+        return progress["recommended"][0]
+    return None
+
