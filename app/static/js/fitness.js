@@ -301,7 +301,10 @@ function createRestTimer(opts) {
     });
   }
 
-  const defaultSec = parseInt(localStorage.getItem(storageKey) || "90", 10);
+  const defaultSec = parseInt(
+    localStorage.getItem(storageKey) || document.body.dataset.defaultRest || "90",
+    10
+  );
   return { start, defaultSeconds: defaultSec, setNextExercise(name, url, iconUrl) {
     if (!nextHint) return;
     if (!name) { nextHint.hidden = true; return; }

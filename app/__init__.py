@@ -100,6 +100,7 @@ def create_app(config_object=None) -> Flask:
                 "active_workout": None,
                 "fitness_workout_url": url_for("fitness.index"),
                 "fitness_tab": None,
+                "user_prefs": {},
             }
 
         from .fitness.nav import fitness_tab_for_endpoint, workout_entry_url
@@ -114,6 +115,10 @@ def create_app(config_object=None) -> Flask:
             "active_workout": active,
             "fitness_workout_url": workout_entry_url(active),
             "fitness_tab": tab,
+            "user_prefs": {
+                **{"default_rest_seconds": 90, "rest_sound": False, "pr_sound": False, "seasonal_bg": True},
+                **current_user.get_preferences(),
+            },
         }
 
     return app

@@ -19,7 +19,10 @@ const HomeOSMotion = (() => {
   }
 
   function seasonalEnabled() {
-    return localStorage.getItem(SEASONAL_KEY) !== "0";
+    const stored = localStorage.getItem(SEASONAL_KEY);
+    if (stored === "0") return false;
+    if (stored === "1") return true;
+    return true;
   }
 
   /** ── Haptics ───────────────────────────────────────── */

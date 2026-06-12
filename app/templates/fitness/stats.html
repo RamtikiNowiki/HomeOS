@@ -35,6 +35,50 @@
   </div>
 </div>
 
+{% with label='Insights' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">Current Streak</p>
+    <p class="text-2xl font-display font-bold text-neon">
+      {% if insights.current_streak >= 3 %}<span class="streak-flame" aria-hidden="true">🔥</span>{% endif %}{{ insights.current_streak }}
+    </p>
+    <p class="text-[10px] text-slate-500">days</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">Best Streak</p>
+    <p class="text-2xl font-display font-bold text-pulse">{{ insights.longest_streak }}</p>
+    <p class="text-[10px] text-slate-500">days all-time</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">Since Legs</p>
+    <p class="text-2xl font-display font-bold text-slate-200">{{ insights.days_since_legs if insights.days_since_legs is not none else '—' }}</p>
+    <p class="text-[10px] text-slate-500">days ago</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1">Since Push</p>
+    <p class="text-2xl font-display font-bold text-slate-200">{{ insights.days_since_push if insights.days_since_push is not none else '—' }}</p>
+    <p class="text-[10px] text-slate-500">days ago</p>
+  </div>
+</div>
+
+{% if insights.muscle_volume %}
+{% with label='Volume by Muscle (7d)' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="space-y-2 mb-8">
+  {% set max_vol = insights.muscle_volume[0].volume if insights.muscle_volume else 1 %}
+  {% for row in insights.muscle_volume %}
+  <div class="p-3 rounded-xl bg-panel border border-edge">
+    <div class="flex items-center justify-between mb-1.5">
+      <p class="text-sm font-medium text-slate-200">{{ row.muscle_group }}</p>
+      <p class="text-xs font-display font-bold text-neon">{{ row.volume|lbs }} lb</p>
+    </div>
+    <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden">
+      <div class="h-full bg-gradient-to-r from-pulse to-neon rounded-full" style="width: {{ (row.volume / max_vol * 100)|round|int }}%"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% with label='Personal Records', extra=(records|length ~ ' lifts' if records else none) %}{% include "fitness/_section_header.html" %}{% endwith %}
 {% if records %}
 <div class="space-y-2.5 stagger-in">

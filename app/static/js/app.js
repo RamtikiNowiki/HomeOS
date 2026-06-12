@@ -81,26 +81,72 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-/** ── 3D printer auto-refresh ───────────────────────────
- *  Only runs on the printer panel page.
- */
+/** ── User prefs from server (sync localStorage on load) ─ */
+document.addEventListener("DOMContentLoaded", () => {
+  const rest = document.body.dataset.defaultRest;
+  if (rest && !localStorage.getItem("fitness-rest-seconds")) {
+    localStorage.setItem("fitness-rest-seconds", rest);
+  }
+});
+
+/** ── 3D printer panel — live status + controls ───────── */
 const printerPanel = document.querySelector("[data-printer-panel]");
 if (printerPanel) {
-  const url = printerPanel.dataset.statusUrl;
-  setInterval(async () => {
+  const statusUrl = printerPanel.dataset.statusUrl;
+
+  function applyPrinterStatus(s) {
+    const bar = printerPanel.querySelector("[data-printer-bar]");
+    const pct = printerPanel.querySelector("[data-printer-pct]");
+    const eta = printerPanel.querySelector("[data-printer-eta]");
+    const elapsed = printerPanel.querySelector("[data-printer-elapsed]");
+    const nozzle = printerPanel.querySelector("[data-printer-nozzle]");
+    const bed = printerPanel.querySelector("[data-printer-bed]");
+    const layer = printerPanel.querySelector("[data-printer-layer]");
+    const fan = printerPanel.querySelector("[data-printer-fan]");
+    const speed = printerPanel.querySelector("[data-printer-speed]");
+    if (bar) {
+      bar.style.width = `${s.progress}%`;
+      bar.classList.toggle("printer-bar-live", s.state === "printing");
+    }
+    if (pct) pct.textContent = `${s.progress}%`;
+    if (eta) eta.textContent = s.time_remaining;
+    if (elapsed) elapsed.textContent = s.time_elapsed;
+    if (nozzle) nozzle.innerHTML = `${s.nozzle_temp}<span class="text-xs text-slate-500 font-body"> / ${s.nozzle_target} °C</span>`;
+    if (bed) bed.innerHTML = `${s.bed_temp}<span class="text-xs text-slate-500 font-body"> / ${s.bed_target} °C</span>`;
+    if (layer) layer.innerHTML = `${s.layer_current}<span class="text-xs text-slate-500 font-body"> / ${s.layer_total}</span>`;
+    if (fan && s.fan_speed_pct != null) fan.innerHTML = `${s.fan_speed_pct}<span class="text-xs text-slate-500 font-body"> %</span>`;
+    if (speed) speed.innerHTML = `${s.print_speed_pct}<span class="text-xs text-slate-500 font-body"> %</span>`;
+
+    printerPanel.querySelector('[data-printer-action="pause"]')?.toggleAttribute("disabled", !s.can_pause);
+    printerPanel.querySelector('[data-printer-action="resume"]')?.toggleAttribute("disabled", !s.can_resume);
+    printerPanel.querySelector('[data-printer-action="cancel"]')?.toggleAttribute("disabled", !s.can_cancel);
+  }
+
+  async function refreshStatus() {
+    const s = await fetch(statusUrl, { headers: { Accept: "application/json" } }).then((r) => r.json());
+    applyPrinterStatus(s);
+  }
+
+  setInterval(() => refreshStatus().catch(console.error), 12000);
+
+  printerPanel.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-printer-action]");
+    if (!btn || btn.disabled) return;
+    const action = btn.dataset.printerAction;
+    if (action === "cancel" && !confirm("Cancel the current print job?")) return;
+    btn.disabled = true;
     try {
-      const s = await fetch(url, { headers: { Accept: "application/json" } }).then((r) => r.json());
-      const bar = printerPanel.querySelector("[data-printer-bar]");
-      const pct = printerPanel.querySelector("[data-printer-pct]");
-      const eta = printerPanel.querySelector("[data-printer-eta]");
-      if (bar) {
-        bar.style.width = `${s.progress}%`;
-        bar.classList.toggle("printer-bar-live", s.state === "printing");
-      }
-      if (pct) pct.textContent = `${s.progress}%`;
-      if (eta) eta.textContent = s.time_remaining;
+      const url =
+        action === "pause" ? printerPanel.dataset.pauseUrl
+        : action === "resume" ? printerPanel.dataset.resumeUrl
+        : `${printerPanel.dataset.cancelUrl}?confirm=1`;
+      const s = await postJSON(url);
+      applyPrinterStatus(s);
     } catch (err) {
       console.error(err);
+      alert("Printer command failed — check Moonraker is reachable.");
+    } finally {
+      btn.disabled = false;
     }
-  }, 15000);
+  });
 }

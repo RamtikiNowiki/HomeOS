@@ -32,6 +32,7 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(64), nullable=False)
     accent = db.Column(db.String(16), nullable=False, default="indigo")  # indigo | cyan | pink
     password_hash = db.Column(db.String(256), nullable=False)
+    preferences_json = db.Column(db.Text, nullable=False, default="{}")
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     exercises = db.relationship("Exercise", backref="user", lazy="dynamic", cascade="all, delete-orphan")
@@ -45,6 +46,21 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+
+    def get_preferences(self) -> dict:
+        try:
+            data = json.loads(self.preferences_json or "{}")
+            return data if isinstance(data, dict) else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def set_preferences(self, updates: dict) -> None:
+        prefs = self.get_preferences()
+        prefs.update(updates)
+        self.preferences_json = json.dumps(prefs)
+
+    def get_pref(self, key: str, default=None):
+        return self.get_preferences().get(key, default)
 
     @property
     def initial(self) -> str:

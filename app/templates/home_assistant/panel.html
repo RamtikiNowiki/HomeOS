@@ -63,7 +63,11 @@
 
 {% if is_mock %}
 <p class="mt-6 text-xs text-slate-600 text-center">
-  Running on mock data — set <code class="text-slate-400">HOME_ASSISTANT_URL</code> and <code class="text-slate-400">HOME_ASSISTANT_TOKEN</code> to connect a real instance.
+  Mock mode — set <code class="text-slate-400">HOME_ASSISTANT_URL</code>, <code class="text-slate-400">HOME_ASSISTANT_TOKEN</code>, and entity IDs in <code class="text-slate-400">.env</code>.
+</p>
+{% else %}
+<p class="mt-6 text-xs text-slate-600 text-center">
+  Connected to Home Assistant. Entity IDs are configured via <code class="text-slate-400">HOME_ASSISTANT_LIGHTS</code> and <code class="text-slate-400">HOME_ASSISTANT_SENSOR</code> in <code class="text-slate-400">.env</code>.
 </p>
 {% endif %}
 {% endblock %}

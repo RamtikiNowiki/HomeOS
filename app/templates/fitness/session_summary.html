@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Workout Complete{% endblock %}
+
+{% block content %}
+{% include "fitness/_subnav.html" %}
+
+<div class="text-center mb-8 stagger-in">
+  <p class="text-[10px] font-display uppercase tracking-[0.2em] text-neon mb-2">Workout complete</p>
+  <h1 class="text-2xl font-display font-bold text-slate-100">{{ session.name }}</h1>
+  <p class="text-xs text-slate-500 mt-1">{{ session.finished_at.strftime('%A, %b %d · %I:%M %p') if session.finished_at else '' }}</p>
+</div>
+
+<div class="grid grid-cols-2 gap-3 mb-8 stagger-in">
+  <div class="p-4 rounded-2xl bg-panel border border-edge text-center">
+    <p class="text-2xl font-display font-bold text-neon">{{ summary.duration_minutes or '—' }}</p>
+    <p class="text-[10px] uppercase tracking-widest text-slate-500">minutes</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge text-center">
+    <p class="text-2xl font-display font-bold text-neon">{{ summary.total_sets }}</p>
+    <p class="text-[10px] uppercase tracking-widest text-slate-500">sets</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge text-center">
+    <p class="text-2xl font-display font-bold text-pulse">{{ summary.total_volume|lbs }}</p>
+    <p class="text-[10px] uppercase tracking-widest text-slate-500">lb volume</p>
+  </div>
+  <div class="p-4 rounded-2xl bg-panel border border-edge text-center">
+    <p class="text-2xl font-display font-bold text-pulse">{{ summary.exercise_count }}</p>
+    <p class="text-[10px] uppercase tracking-widest text-slate-500">exercises</p>
+  </div>
+</div>
+
+{% if summary.prs %}
+{% with label='Personal Records 🎉' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="space-y-2 mb-8 stagger-in">
+  {% for pr in summary.prs %}
+  <div class="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-pulse/10 to-neon/10 border border-neon/30">
+    <img src="{{ url_for('static', filename=pr.exercise|ex_icon) }}" alt="" width="36" height="36" class="pixel-icon shrink-0">
+    <div class="flex-1 min-w-0">
+      <p class="font-semibold text-slate-100 truncate">{{ pr.exercise|ex_display }}</p>
+      <p class="text-sm text-neon font-display font-bold">{{ pr.weight|lbs }} lb × {{ pr.reps }}</p>
+    </div>
+    <p class="text-[10px] text-slate-500 shrink-0">est. {{ pr.estimated_1rm|lbs }} 1RM</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="flex flex-col sm:flex-row gap-3 stagger-in">
+  <a href="{{ url_for('fitness.session_detail', session_id=session.id) }}"
+     class="flex-1 py-3 rounded-xl text-center text-xs font-display uppercase tracking-widest border border-edge text-slate-300 hover:border-neon/40 hover:text-neon transition-colors">
+    View session
+  </a>
+  <a href="{{ url_for('fitness.index') }}"
+     class="flex-1 py-3 rounded-xl text-center text-xs font-display uppercase tracking-widest text-void bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all">
+    Back to train
+  </a>
+</div>
+{% endblock %}

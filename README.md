@@ -58,7 +58,14 @@ Default dev logins (override via `.env` before seeding):
 | Profile | Username | Password    |
 |---------|----------|-------------|
 | User 1  | `ram`    | `changeme1` |
-| User 2  | `tiki`   | `changeme2` |
+| User 2  | `aylin`  | `changeme2` |
+
+See **[DEPLOY.md](DEPLOY.md)** for Raspberry Pi Docker deployment (Postgres + nginx).
+
+## Database
+
+- **Dev:** SQLite at `instance/dev.db` when `DATABASE_URL` is unset
+- **Production:** PostgreSQL via Docker Compose — see `docker-compose.yml`
 
 ## Production deployment (Raspberry Pi 400)
 

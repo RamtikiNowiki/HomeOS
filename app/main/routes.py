@@ -1,12 +1,25 @@
-from flask import render_template
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from ..models import WeightLog, WorkoutSession
-from ..fitness.service import last_logged_exercise, suggest_next_exercise, get_program_week, workout_streak_stats
-from datetime import datetime
+from ..extensions import db
 from ..home_assistant.service import HomeAssistantService
 from ..creality_k2.service import CrealityK2Service
+from ..models import WeightLog, WorkoutSession
+from ..fitness.service import (
+    last_logged_exercise,
+    suggest_next_exercise,
+    get_program_week,
+    workout_streak_stats,
+)
+from datetime import datetime
 from . import main_bp
+
+DEFAULT_PREFERENCES = {
+    "default_rest_seconds": 90,
+    "rest_sound": False,
+    "pr_sound": False,
+    "seasonal_bg": True,
+}
 
 
 def _weight_trend(user_id: int, limit: int = 12):
@@ -84,4 +97,42 @@ def dashboard():
         lights_on=lights_on,
         sensor=sensor,
         printer=printer,
+    )
+
+
+def _merged_preferences(user) -> dict:
+    prefs = dict(DEFAULT_PREFERENCES)
+    prefs.update(user.get_preferences())
+    return prefs
+
+
+@main_bp.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    ha = HomeAssistantService()
+    printer = CrealityK2Service()
+
+    if request.method == "POST":
+        rest_raw = request.form.get("default_rest_seconds", "90")
+        try:
+            rest_sec = max(30, min(600, int(rest_raw)))
+        except ValueError:
+            rest_sec = 90
+        current_user.set_preferences({
+            "default_rest_seconds": rest_sec,
+            "rest_sound": request.form.get("rest_sound") == "1",
+            "pr_sound": request.form.get("pr_sound") == "1",
+            "seasonal_bg": request.form.get("seasonal_bg") == "1",
+        })
+        db.session.commit()
+        flash("Settings saved.", "success")
+        return redirect(url_for("main.settings"))
+
+    return render_template(
+        "settings.html",
+        prefs=_merged_preferences(current_user),
+        ha_info=ha.connection_info(),
+        printer_info=printer.connection_info(),
+        is_ha_mock=ha.is_mock,
+        is_printer_mock=printer.is_mock,
     )

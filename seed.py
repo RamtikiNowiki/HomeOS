@@ -80,6 +80,14 @@ def migrate_schema() -> None:
             ))
             db.session.commit()
             print("  + migrated workout_sets.is_warmup column")
+    if "users" in inspector.get_table_names():
+        columns = {c["name"] for c in inspector.get_columns("users")}
+        if "preferences_json" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE users ADD COLUMN preferences_json TEXT DEFAULT '{}' NOT NULL"
+            ))
+            db.session.commit()
+            print("  + migrated users.preferences_json column")
 
 
 def migrate_user1_to_indigo() -> None:

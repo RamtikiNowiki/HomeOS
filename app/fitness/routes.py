@@ -331,13 +331,22 @@ def finish_session(session_id: int):
         return redirect(url_for("fitness.index"))
     session.finished_at = utcnow()
     db.session.commit()
-    mins = session.duration_minutes
-    flash(
-        f"Session logged: {session.total_sets} sets, {session.total_volume:g} lb volume"
-        + (f", {mins} min." if mins else "."),
-        "success",
+    return redirect(url_for("fitness.session_summary", session_id=session.id))
+
+
+@fitness_bp.route("/session/<int:session_id>/summary")
+@login_required
+def session_summary(session_id: int):
+    session = _get_own_session(session_id)
+    if session.is_active:
+        return redirect(url_for("fitness.session_detail", session_id=session.id))
+    from .service import session_summary as build_summary
+    summary = build_summary(session)
+    return render_template(
+        "fitness/session_summary.html",
+        session=session,
+        summary=summary,
     )
-    return redirect(url_for("fitness.index"))
 
 
 @fitness_bp.route("/session/<int:session_id>/notes", methods=["POST"])
@@ -899,6 +908,21 @@ def stats():
         .count()
     )
 
+    from .service import (
+        longest_workout_streak,
+        weekly_volume_by_muscle,
+        days_since_last_focus,
+    )
+    streak = workout_streak_stats(current_user.id)
+    insights = {
+        "longest_streak": longest_workout_streak(current_user.id),
+        "current_streak": streak["day_streak"],
+        "muscle_volume": weekly_volume_by_muscle(current_user.id),
+        "days_since_legs": days_since_last_focus(current_user.id, "legs"),
+        "days_since_push": days_since_last_focus(current_user.id, "push"),
+        "days_since_pull": days_since_last_focus(current_user.id, "pull"),
+    }
+
     return render_template(
         "fitness/stats.html",
         records=records,
@@ -906,6 +930,7 @@ def stats():
         weekly_volume=round(weekly_volume, 1),
         total_sessions=total_sessions,
         exercise_count=len(exercises),
+        insights=insights,
     )
 
 

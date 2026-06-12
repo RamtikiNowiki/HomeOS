@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <p class="text-[11px] font-display font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Preferences</p>
+  <h1 class="text-2xl font-display font-bold">Settings</h1>
+  <p class="text-xs text-slate-500 mt-0.5">Workout defaults & integration status</p>
+</div>
+
+<form method="post" class="space-y-6">
+  {% with label='Workout' %}{% include "fitness/_section_header.html" %}{% endwith %}
+  <div class="p-4 rounded-2xl bg-panel border border-edge space-y-4">
+    <div>
+      <label for="default_rest_seconds" class="block text-[10px] uppercase tracking-widest text-slate-500 mb-1.5">Default rest timer (seconds)</label>
+      <input type="number" name="default_rest_seconds" id="default_rest_seconds" min="30" max="600" step="15"
+             value="{{ prefs.default_rest_seconds }}"
+             class="w-full max-w-xs px-4 py-3 rounded-xl bg-void border border-edge text-sm font-display font-bold">
+      <p class="text-[10px] text-slate-500 mt-1">Used when you log a set — also synced to this device.</p>
+    </div>
+
+    <label class="flex items-center gap-3 cursor-pointer">
+      <input type="checkbox" name="rest_sound" value="1" {{ 'checked' if prefs.rest_sound else '' }}
+             class="rounded border-edge w-4 h-4">
+      <span class="text-sm text-slate-300">Rest timer sound</span>
+    </label>
+    <label class="flex items-center gap-3 cursor-pointer">
+      <input type="checkbox" name="pr_sound" value="1" {{ 'checked' if prefs.pr_sound else '' }}
+             class="rounded border-edge w-4 h-4">
+      <span class="text-sm text-slate-300">PR celebration sound</span>
+    </label>
+    <label class="flex items-center gap-3 cursor-pointer">
+      <input type="checkbox" name="seasonal_bg" value="1" {{ 'checked' if prefs.seasonal_bg else '' }}
+             class="rounded border-edge w-4 h-4">
+      <span class="text-sm text-slate-300">Seasonal background (Aylin light mode)</span>
+    </label>
+  </div>
+
+  <button type="submit"
+          class="w-full py-3.5 rounded-xl font-display font-semibold uppercase tracking-widest text-xs text-void
+                 bg-gradient-to-r from-pulse to-neon hover:opacity-90 transition-all">
+    Save Settings
+  </button>
+</form>
+
+{% with label='Integrations' %}{% include "fitness/_section_header.html" %}{% endwith %}
+<div class="space-y-3">
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <p class="font-semibold text-slate-100">Home Assistant</p>
+      {% if is_ha_mock %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase">Mock</span>
+      {% else %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase">Configured</span>
+      {% endif %}
+    </div>
+    {% if is_ha_mock %}
+      <p class="text-xs text-slate-500">Set <code class="text-slate-400">HOME_ASSISTANT_URL</code>, <code class="text-slate-400">HOME_ASSISTANT_TOKEN</code>, and entity IDs in <code class="text-slate-400">.env</code> on the Pi.</p>
+    {% else %}
+      <p class="text-xs text-slate-500 truncate">{{ ha_info.url }}</p>
+      {% if ha_info.lights %}<p class="text-[10px] text-slate-600 mt-1">Lights: {{ ha_info.lights|join(', ') }}</p>{% endif %}
+    {% endif %}
+  </div>
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <p class="font-semibold text-slate-100">Creality K2 Plus</p>
+      {% if is_printer_mock %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase">Mock</span>
+      {% else %}
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase">Configured</span>
+      {% endif %}
+    </div>
+    {% if is_printer_mock %}
+      <p class="text-xs text-slate-500">Set <code class="text-slate-400">CREALITY_K2_HOST</code> to your printer's LAN IP (Moonraker port 7125).</p>
+    {% else %}
+      <p class="text-xs text-slate-500">{{ printer_info.base_url }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const rest = document.getElementById("default_rest_seconds")?.value;
+    if (rest) localStorage.setItem("fitness-rest-seconds", rest);
+    const form = document.querySelector("form");
+    form?.addEventListener("submit", () => {
+      localStorage.setItem("fitness-rest-seconds", document.getElementById("default_rest_seconds").value);
+      localStorage.setItem("fitness-rest-sound", document.querySelector('[name="rest_sound"]')?.checked ? "1" : "0");
+      localStorage.setItem("fitness-sound-enabled", document.querySelector('[name="pr_sound"]')?.checked ? "1" : "0");
+      localStorage.setItem("homeos-seasonal-bg", document.querySelector('[name="seasonal_bg"]')?.checked ? "1" : "0");
+    });
+  });
+</script>
+{% endblock %}

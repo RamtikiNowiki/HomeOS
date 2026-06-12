@@ -32,9 +32,13 @@ class BaseConfig:
     # Home Assistant integration (mock mode until configured)
     HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL", "")
     HOME_ASSISTANT_TOKEN = os.environ.get("HOME_ASSISTANT_TOKEN", "")
+    HOME_ASSISTANT_LIGHTS = os.environ.get("HOME_ASSISTANT_LIGHTS", "")
+    HOME_ASSISTANT_SENSOR = os.environ.get("HOME_ASSISTANT_SENSOR", "")
 
     # Creality K2 Plus integration (mock mode until configured)
     CREALITY_K2_HOST = os.environ.get("CREALITY_K2_HOST", "")
+    CREALITY_K2_PORT = os.environ.get("CREALITY_K2_PORT", "7125")
+    CREALITY_K2_API_KEY = os.environ.get("CREALITY_K2_API_KEY", "")
 
 
 class DevelopmentConfig(BaseConfig):

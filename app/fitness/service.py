@@ -111,6 +111,138 @@ def workout_streak_stats(user_id: int) -> dict:
     return {"weekly_sessions": weekly, "day_streak": streak}
 
 
+def longest_workout_streak(user_id: int) -> int:
+    """Best-ever consecutive-day workout streak."""
+    from datetime import timedelta
+
+    finished = (
+        WorkoutSession.query.filter_by(user_id=user_id)
+        .filter(WorkoutSession.finished_at.isnot(None))
+        .order_by(WorkoutSession.started_at.asc())
+        .all()
+    )
+    if not finished:
+        return 0
+    days = sorted({s.started_at.date() for s in finished})
+    best = current = 1
+    for i in range(1, len(days)):
+        if days[i] - days[i - 1] == timedelta(days=1):
+            current += 1
+            best = max(best, current)
+        else:
+            current = 1
+    return best
+
+
+def weekly_volume_by_muscle(user_id: int) -> list[dict]:
+    """Volume per muscle group for the last 7 days."""
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    week_ago = utcnow() - timedelta(days=7)
+    rows = (
+        db.session.query(
+            Exercise.muscle_group,
+            func.sum(WorkoutSet.weight * WorkoutSet.reps),
+        )
+        .join(WorkoutSet, WorkoutSet.exercise_id == Exercise.id)
+        .join(WorkoutSession, WorkoutSession.id == WorkoutSet.session_id)
+        .filter(
+            WorkoutSession.user_id == user_id,
+            WorkoutSession.finished_at.isnot(None),
+            WorkoutSession.started_at >= week_ago,
+            WorkoutSet.completed.is_(True),
+            WorkoutSet.is_warmup.is_(False),
+        )
+        .group_by(Exercise.muscle_group)
+        .order_by(func.sum(WorkoutSet.weight * WorkoutSet.reps).desc())
+        .all()
+    )
+    return [
+        {"muscle_group": mg, "volume": round(float(vol or 0), 1)}
+        for mg, vol in rows
+    ]
+
+
+def days_since_last_focus(user_id: int, focus: str) -> int | None:
+    """Days since last session matching a split key or muscle focus."""
+    from datetime import timedelta
+
+    focus = focus.lower()
+    muscle_map = {
+        "legs": "Legs",
+        "lower": "Legs",
+        "push": "Chest",
+        "pull": "Back",
+        "chest": "Chest",
+        "back": "Back",
+        "shoulders": "Shoulders",
+        "arms": "Arms",
+        "upper": "Chest",
+    }
+    muscle = muscle_map.get(focus)
+
+    sessions = (
+        WorkoutSession.query.filter_by(user_id=user_id)
+        .filter(WorkoutSession.finished_at.isnot(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .all()
+    )
+    for session in sessions:
+        wt = (session.workout_type or "").lower()
+        name = (session.name or "").lower()
+        if focus in wt or focus in name:
+            return (utcnow().date() - session.started_at.date()).days
+        if muscle:
+            ex_ids = {s.exercise_id for s in session.sets}
+            if ex_ids and Exercise.query.filter(
+                Exercise.id.in_(ex_ids),
+                Exercise.muscle_group == muscle,
+            ).first():
+                return (utcnow().date() - session.started_at.date()).days
+    return None
+
+
+def personal_records_in_session(session: WorkoutSession) -> list[dict]:
+    """PRs achieved in a just-finished session."""
+    prs = []
+    if not session.finished_at:
+        return prs
+    for ex in session.exercises_performed:
+        working = [
+            s for s in session.sets_for_exercise(ex.id)
+            if s.completed and not s.is_warmup
+        ]
+        if not working:
+            continue
+        best = max(working, key=lambda s: s.estimated_1rm)
+        current = ex.personal_record()
+        if not current:
+            continue
+        if abs(current["estimated_1rm"] - best.estimated_1rm) > 0.01:
+            continue
+        if current["date"].date() != session.finished_at.date():
+            continue
+        prs.append({
+            "exercise": ex,
+            "weight": best.weight,
+            "reps": best.reps,
+            "estimated_1rm": round(best.estimated_1rm, 1),
+        })
+    return prs
+
+
+def session_summary(session: WorkoutSession) -> dict:
+    """Post-workout recap payload."""
+    return {
+        "duration_minutes": session.duration_minutes,
+        "total_sets": session.total_sets,
+        "total_volume": session.total_volume,
+        "exercise_count": len(session.exercises_performed),
+        "prs": personal_records_in_session(session),
+    }
+
+
 def import_split_exercises(user_id: int, split_id: str) -> tuple[int, int]:
     names = get_split_exercise_names(split_id)
     if not names:
