@@ -1,0 +1,72 @@
+from flask import render_template
+from flask_login import current_user, login_required
+
+from ..models import WeightLog, WorkoutSession
+from ..home_assistant.service import HomeAssistantService
+from ..creality_k2.service import CrealityK2Service
+from . import main_bp
+
+
+def _weight_trend(user_id: int, limit: int = 12):
+    """Latest weight, delta vs previous log, and SVG sparkline points."""
+    logs = (
+        WeightLog.query.filter_by(user_id=user_id)
+        .order_by(WeightLog.log_date.desc())
+        .limit(limit)
+        .all()
+    )
+    logs.reverse()
+    if not logs:
+        return {"latest": None, "delta": None, "points": "", "logs": []}
+
+    latest = logs[-1]
+    delta = round(logs[-1].weight - logs[-2].weight, 1) if len(logs) > 1 else None
+
+    # Normalize into a 100x32 viewBox polyline
+    points = ""
+    if len(logs) > 1:
+        weights = [l.weight for l in logs]
+        lo, hi = min(weights), max(weights)
+        span = (hi - lo) or 1.0
+        step = 100 / (len(weights) - 1)
+        coords = [
+            f"{round(i * step, 1)},{round(30 - ((w - lo) / span) * 28, 1)}"
+            for i, w in enumerate(weights)
+        ]
+        points = " ".join(coords)
+
+    return {"latest": latest, "delta": delta, "points": points, "logs": logs}
+
+
+@main_bp.route("/")
+@login_required
+def dashboard():
+    last_session = (
+        WorkoutSession.query.filter_by(user_id=current_user.id)
+        .filter(WorkoutSession.finished_at.isnot(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .first()
+    )
+    active_session = (
+        WorkoutSession.query.filter_by(user_id=current_user.id, finished_at=None)
+        .order_by(WorkoutSession.started_at.desc())
+        .first()
+    )
+
+    ha = HomeAssistantService()
+    lights = ha.get_lights()
+    sensor = ha.get_sensor()
+    lights_on = sum(1 for l in lights if l["state"] == "on")
+
+    printer = CrealityK2Service().get_status()
+
+    return render_template(
+        "dashboard.html",
+        weight=_weight_trend(current_user.id),
+        last_session=last_session,
+        active_session=active_session,
+        lights=lights,
+        lights_on=lights_on,
+        sensor=sensor,
+        printer=printer,
+    )

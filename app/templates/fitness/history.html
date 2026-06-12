@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}History{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon transition-colors">← Workout</a>
+  <h1 class="text-2xl font-display font-bold mt-1">Training History</h1>
+  <p class="text-xs text-slate-500 mt-0.5">{{ sessions|length }} completed session{{ 's' if sessions|length != 1 }}</p>
+</div>
+
+{% if sessions %}
+<div class="space-y-3">
+  {% for session in sessions %}
+    <details class="group rounded-2xl bg-panel border border-edge overflow-hidden">
+      <summary class="flex items-center gap-3 p-4 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <div class="w-12 h-12 shrink-0 rounded-xl bg-raised border border-edge grid place-items-center">
+          <div class="text-center leading-none">
+            <p class="text-[9px] font-display uppercase text-slate-500">{{ session.started_at.strftime('%b') }}</p>
+            <p class="text-base font-display font-bold text-slate-200">{{ session.started_at.strftime('%d') }}</p>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-slate-100 truncate">{{ session.name }}</p>
+          <p class="text-xs text-slate-500">{{ session.total_sets }} sets · {{ session.total_volume|kg }} kg volume</p>
+        </div>
+        <a href="{{ url_for('fitness.session_detail', session_id=session.id) }}"
+           class="shrink-0 text-[10px] font-display uppercase tracking-widest text-neon hover:underline"
+           onclick="event.stopPropagation()">View</a>
+        <svg class="shrink-0 text-slate-500 transition-transform group-open:rotate-180" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
+      <div class="px-4 pb-4 pt-1 border-t border-edge/60 space-y-3">
+        {% if session.notes %}
+          <p class="text-xs text-slate-400 italic">{{ session.notes }}</p>
+        {% endif %}
+        {% for exercise in session.exercises_performed %}
+          <div>
+            <p class="text-sm font-medium text-slate-300 mb-1.5">{{ exercise.name }}</p>
+            <div class="flex flex-wrap gap-1.5">
+              {% for s in session.sets_for_exercise(exercise.id) %}
+                <span class="px-2.5 py-1 rounded-lg text-xs font-medium border
+                             {{ 'bg-neon/10 border-neon/30 text-neon' if s.completed else 'bg-raised border-edge text-slate-500' }}">
+                  {{ s.weight|kg }}×{{ s.reps }}{% if s.rpe %}@{{ s.rpe|kg }}{% endif %}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+        <form action="{{ url_for('fitness.delete_session', session_id=session.id) }}" method="post"
+              onsubmit="return confirm('Delete this session?');">
+          <button type="submit" class="text-[10px] font-display uppercase tracking-widest text-rose-400 hover:text-rose-300">
+            Delete session
+          </button>
+        </form>
+      </div>
+    </details>
+  {% endfor %}
+</div>
+{% else %}
+<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500">No completed sessions yet — your history will build here.</p>
+{% endif %}
+{% endblock %}

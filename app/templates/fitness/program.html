@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Weekly Program{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-start justify-between gap-3">
+  <div>
+    <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
+    <h1 class="text-2xl font-display font-bold mt-1">Weekly Program</h1>
+    <p class="text-xs text-slate-500 mt-0.5">Plan your training week</p>
+  </div>
+  {% set today_plan = week[today_dow] %}
+  {% if today_plan and today_plan.label != 'Rest' %}
+  <form action="{{ url_for('fitness.program_start_today') }}" method="post">
+    <button type="submit" class="shrink-0 px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start Today</button>
+  </form>
+  {% endif %}
+</div>
+
+<form method="post" class="space-y-3 mb-6">
+  {% for i in range(7) %}
+    {% set day = week[i] %}
+    <div class="p-4 rounded-2xl bg-panel border border-edge {{ 'ring-2 ring-neon/40' if i == today_dow else '' }}">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <p class="font-display font-bold text-slate-100">{{ day_names[i] }}{% if i == today_dow %} <span class="text-neon text-xs">· today</span>{% endif %}</p>
+        {% if day %}<span class="text-xs text-pulse">{{ day.label }}</span>{% endif %}
+      </div>
+      <select name="day_{{ i }}" class="w-full px-3 py-2.5 rounded-xl bg-raised border border-edge text-sm">
+        <option value="rest" {{ 'selected' if not day }}>Rest day</option>
+        <optgroup label="Splits">
+          {% for sid, s in splits.items() %}
+            <option value="split:{{ sid }}" {{ 'selected' if day and day.split_key == sid }}>{{ s.name }}</option>
+          {% endfor %}
+        </optgroup>
+        {% if routines %}
+        <optgroup label="My routines">
+          {% for r in routines %}
+            <option value="routine:{{ r.id }}" {{ 'selected' if day and day.routine_id == r.id }}>{{ r.name }}</option>
+          {% endfor %}
+        </optgroup>
+        {% endif %}
+      </select>
+    </div>
+  {% endfor %}
+  <button type="submit" class="w-full py-4 rounded-xl font-display uppercase tracking-widest text-sm text-white bg-gradient-to-r from-pulse to-neon">Save Program</button>
+</form>
+{% endblock %}

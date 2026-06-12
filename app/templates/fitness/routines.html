@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}My Routines{% endblock %}
+{% block content %}
+<div class="mb-6 flex items-start justify-between gap-3">
+  <div>
+    <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
+    <h1 class="text-2xl font-display font-bold mt-1">My Routines</h1>
+    <p class="text-xs text-slate-500 mt-0.5">Saved workout templates — one tap to start</p>
+  </div>
+  <a href="{{ url_for('fitness.routine_new') }}"
+     class="shrink-0 px-4 py-2.5 rounded-xl font-display text-xs uppercase tracking-widest text-white
+            bg-gradient-to-r from-pulse to-neon shadow-glow-cyan">+ New</a>
+</div>
+
+{% if routines %}
+<div class="space-y-3 mb-8">
+  {% for routine in routines %}
+    <div class="p-4 rounded-2xl bg-panel border border-edge">
+      <div class="flex items-start justify-between gap-3 mb-2">
+        <div>
+          <p class="font-semibold text-slate-100">{{ routine.name }}</p>
+          <p class="text-xs text-slate-500">{{ routine.entries.count() }} exercises{% if routine.split_key %} · {{ routine.split_key|replace('_',' ')|title }}{% endif %}</p>
+        </div>
+        <form action="{{ url_for('fitness.routine_start', routine_id=routine.id) }}" method="post">
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Start</button>
+        </form>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mb-3">
+        {% for entry in routine.ordered_exercises() %}
+          <span class="px-2 py-1 rounded-lg text-xs bg-raised border border-edge text-slate-500">{{ entry.exercise.name }}</span>
+        {% endfor %}
+      </div>
+      <div class="flex gap-3 text-xs">
+        <a href="{{ url_for('fitness.routine_edit', routine_id=routine.id) }}" class="text-pulse hover:underline">Edit</a>
+        <form action="{{ url_for('fitness.routine_delete', routine_id=routine.id) }}" method="post" onsubmit="return confirm('Delete this routine?');">
+          <button type="submit" class="text-rose-500 hover:underline">Delete</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500 mb-8">No saved routines yet. Finish a workout and save it, or create one from scratch.</p>
+{% endif %}
+
+<h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">Repeat Last Session</h2>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+  {% for split_id, split in splits.items() %}
+    {% if last_by_type.get(split_id) %}
+      <form action="{{ url_for('fitness.repeat_last_session') }}" method="post">
+        <input type="hidden" name="workout_type" value="{{ split_id }}">
+        <button type="submit" class="w-full text-left p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-colors">
+          <p class="font-display font-bold text-sm text-slate-100">Repeat {{ split.name }}</p>
+          <p class="text-[10px] text-slate-500 mt-0.5">{{ last_by_type[split_id].started_at.strftime('%b %d') }}</p>
+        </button>
+      </form>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}

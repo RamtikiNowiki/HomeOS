@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex items-start justify-between gap-3">
+  <div class="min-w-0">
+    <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon transition-colors">← Workout</a>
+    <h1 class="text-2xl font-display font-bold mt-1 truncate">{{ session.name }}</h1>
+    <p class="text-xs text-slate-500 mt-0.5">
+      {{ session.started_at.strftime('%A, %b %d') }} ·
+      {{ session.elapsed_minutes }} min ·
+      {{ session.total_sets }} sets · {{ session.total_volume|kg }} kg volume
+    </p>
+  </div>
+  {% if session.is_active %}
+    <div class="flex flex-col items-end gap-2 shrink-0">
+      <form action="{{ url_for('fitness.finish_session', session_id=session.id) }}" method="post">
+        <button type="submit"
+                class="px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-600 dark:text-emerald-400
+                       font-display font-semibold uppercase tracking-widest text-xs hover:bg-emerald-500/25 transition-colors">
+          Finish
+        </button>
+      </form>
+    </div>
+  {% else %}
+    <span class="shrink-0 px-3 py-1.5 rounded-full bg-raised border border-edge text-[10px] font-display uppercase tracking-widest text-slate-400">Completed</span>
+  {% endif %}
+</div>
+
+{% if session.is_active and session.exercises_performed %}
+<form action="{{ url_for('fitness.save_session_as_routine', session_id=session.id) }}" method="post" class="flex flex-wrap gap-2 mb-6">
+  <input type="text" name="name" value="{{ session.name }}" placeholder="Routine name"
+         class="flex-1 min-w-[160px] px-3 py-2 rounded-xl bg-raised border border-edge text-sm">
+  <button type="submit" class="px-4 py-2 rounded-xl text-xs font-display uppercase tracking-widest bg-pulse/15 border border-pulse/40 text-pulse">Save as routine</button>
+</form>
+{% elif session.finished_at %}
+<form action="{{ url_for('fitness.repeat_session_route', session_id=session.id) }}" method="post" class="mb-6">
+  <button type="submit" class="px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-neon/15 border border-neon/40 text-neon">Repeat this session</button>
+</form>
+{% endif %}
+
+{% if progress and progress.total > 0 %}
+<div class="mb-6 p-4 rounded-2xl border border-neon/30 bg-neon/5">
+  <div class="flex items-center justify-between mb-2">
+    <p class="text-xs font-display font-bold uppercase tracking-widest text-neon">Workout Plan</p>
+    <p class="text-xs text-slate-400">{{ progress.done_count }}/{{ progress.total }} done</p>
+  </div>
+  <div class="h-2 rounded-full bg-void border border-edge overflow-hidden mb-3">
+    <div class="h-full rounded-full bg-gradient-to-r from-pulse to-neon transition-all"
+         style="width: {{ (progress.done_count / progress.total * 100)|round }}%"></div>
+  </div>
+  <div class="space-y-2">
+    {% for ex in progress.recommended %}
+      {% set is_done = ex in progress.done %}
+      <a href="{{ url_for('fitness.log_exercise', session_id=session.id, exercise_id=ex.id) }}"
+         class="flex items-center gap-3 p-3 rounded-xl border transition-colors
+                {{ 'bg-neon/10 border-neon/30' if is_done else 'bg-panel border-edge hover:border-pulse/50' }}">
+        <span class="w-6 h-6 shrink-0 grid place-items-center rounded-full text-[10px] font-bold
+                     {{ 'bg-neon/20 text-neon' if is_done else 'bg-raised text-slate-500' }}">
+          {% if is_done %}✓{% else %}{{ loop.index }}{% endif %}
+        </span>
+        <span class="flex-1 text-sm {{ 'text-neon' if is_done else 'text-slate-200' }} truncate">{{ ex.name }}</span>
+        {% if not is_done and progress.remaining and progress.remaining[0].id == ex.id %}
+          <span class="text-[10px] font-display uppercase tracking-widest text-pulse shrink-0">Up next</span>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if session.is_active %}
+<form action="{{ url_for('fitness.update_session_notes', session_id=session.id) }}" method="post" class="mb-6">
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <label for="notes" class="block text-xs font-display font-semibold uppercase tracking-widest text-slate-500 mb-2">Session Notes</label>
+    <textarea name="notes" id="notes" rows="2" placeholder="How did it feel? Any injuries or PRs?"
+              class="w-full px-4 py-3 rounded-xl bg-void border border-edge text-slate-100 text-sm resize-none
+                     focus:outline-none focus:border-neon/60 focus:ring-1 focus:ring-neon/40 transition-colors">{{ session.notes or '' }}</textarea>
+    <button type="submit" class="mt-2 text-xs font-display uppercase tracking-widest text-neon hover:text-neon/80 transition-colors">
+      Save notes
+    </button>
+  </div>
+</form>
+{% elif session.notes %}
+<div class="mb-6 p-4 rounded-2xl bg-panel border border-edge">
+  <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500 mb-1">Notes</p>
+  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ session.notes }}</p>
+</div>
+{% endif %}
+
+{% if performed %}
+<div class="space-y-3 mb-8">
+  <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400">Logged This Session</h2>
+  {% for item in performed %}
+    <a href="{{ url_for('fitness.log_exercise', session_id=session.id, exercise_id=item.exercise.id) }}"
+       class="block p-4 rounded-2xl bg-panel border border-edge hover:border-neon/50 transition-colors">
+      <div class="flex items-center justify-between mb-2.5">
+        <p class="font-semibold text-slate-100">{{ item.exercise.name }}</p>
+        <span class="text-xs text-slate-500">{{ item.sets|length }} set{{ 's' if item.sets|length != 1 }}</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        {% for s in item.sets %}
+          <span class="px-2.5 py-1 rounded-lg text-xs font-medium border
+                       {{ 'bg-neon/10 border-neon/30 text-neon' if s.completed else 'bg-raised border-edge text-slate-500' }}">
+            {{ s.weight|kg }}×{{ s.reps }}{% if s.rpe %}@{{ s.rpe|kg }}{% endif %}
+          </span>
+        {% endfor %}
+      </div>
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if session.is_active %}
+  {% if other_exercises %}
+  <div>
+    <h2 class="text-sm font-display font-semibold uppercase tracking-widest text-slate-400 mb-3">
+      {{ 'More Exercises' if progress else ('Add Another Exercise' if performed else 'Pick An Exercise') }}
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {% for exercise in other_exercises %}
+        {% set previous = exercise.last_completed_session_sets(exclude_session_id=session.id) %}
+        <a href="{{ url_for('fitness.log_exercise', session_id=session.id, exercise_id=exercise.id) }}"
+           class="flex items-center justify-between gap-3 p-4 rounded-2xl bg-panel border border-edge hover:border-pulse/50 transition-all">
+          <div class="min-w-0">
+            <p class="font-medium text-slate-100 truncate">{{ exercise.name }}</p>
+            <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>
+          </div>
+          {% if previous %}
+            <span class="shrink-0 text-xs font-display font-bold text-pulse">{{ previous.top_set.weight|kg }}kg × {{ previous.top_set.reps }}</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% else %}
+<div class="flex gap-3">
+  <a href="{{ url_for('fitness.history') }}"
+     class="flex-1 py-3 rounded-xl text-center text-xs font-display uppercase tracking-widest bg-raised border border-edge text-slate-300 hover:border-neon/50 transition-colors">
+    Back to History
+  </a>
+  <form action="{{ url_for('fitness.delete_session', session_id=session.id) }}" method="post" class="shrink-0"
+        onsubmit="return confirm('Delete this session and all its sets?');">
+    <button type="submit"
+            class="px-4 py-3 rounded-xl text-xs font-display uppercase tracking-widest text-rose-400 border border-rose-500/30 hover:bg-rose-500/10 transition-colors">
+      Delete
+    </button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

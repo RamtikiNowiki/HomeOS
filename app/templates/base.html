@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6fb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon.svg') }}">
+  <title>{% block title %}Home OS{% endblock %} · Home OS & Fitness Hub</title>
+
+  <script>
+    (function () {
+      if (localStorage.getItem("theme") === "dark") {
+        document.documentElement.classList.add("dark");
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#12141c");
+      }
+    })();
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            void:    'var(--void)',
+            panel:   'var(--panel)',
+            raised:  'var(--raised)',
+            edge:    'var(--edge)',
+            neon:    { DEFAULT: 'var(--neon)', dim: 'var(--neon-dim)' },
+            pulse:   { DEFAULT: 'var(--pulse)', dim: 'var(--pulse-dim)' },
+          },
+          fontFamily: {
+            display: ['"Chakra Petch"', 'sans-serif'],
+            body: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'glow-cyan':   'var(--glow-cyan)',
+            'glow-indigo': 'var(--glow-indigo)',
+            'card':        'var(--shadow-card)',
+          },
+        }
+      }
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="bg-void text-slate-800 dark:text-slate-100 font-body antialiased min-h-screen selection:bg-pulse/30">
+  <div class="bg-grid fixed inset-0 pointer-events-none" aria-hidden="true"></div>
+
+  {% if current_user.is_authenticated %}
+  <header class="sticky top-0 z-40 backdrop-blur-xl bg-void/90 border-b border-edge">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="{{ url_for('main.dashboard') }}" class="flex items-center gap-2.5">
+        <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-pulse to-neon grid place-items-center shadow-glow-indigo">
+          <svg class="text-white dark:text-void" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </span>
+        <span class="font-display font-bold tracking-wider text-sm uppercase text-slate-800 dark:text-slate-100">Home<span class="text-neon">OS</span></span>
+      </a>
+
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="theme-toggle" title="Toggle dark mode"
+                class="w-9 h-9 rounded-full grid place-items-center text-slate-500 dark:text-slate-400 hover:bg-raised transition-colors">
+          <svg class="theme-icon-sun hidden dark:block" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="theme-icon-moon dark:hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <form action="{{ url_for('auth.switch_profile') }}" method="post">
+          <button type="submit" title="Switch profile"
+                  class="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-raised border border-edge hover:border-indigo-400/60 transition-colors">
+            <span class="w-7 h-7 rounded-full grid place-items-center text-xs font-display font-bold
+                         {{ 'bg-neon/15 text-neon' if current_user.accent == 'cyan' else 'bg-pulse/15 text-pulse' }}">
+              {{ current_user.initial }}
+            </span>
+            <span class="text-xs font-medium text-slate-700 dark:text-slate-200 hidden sm:inline">{{ current_user.display_name }}</span>
+          </button>
+        </form>
+        <form action="{{ url_for('auth.logout') }}" method="post">
+          <button type="submit" title="Sign out"
+                  class="w-9 h-9 rounded-full grid place-items-center text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 transition-colors">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+  {% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-16 inset-x-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none">
+        {% for category, message in messages %}
+          <div class="flash-toast pointer-events-auto max-w-md w-full sm:w-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border backdrop-blur-xl text-sm font-semibold shadow-card
+                      {{ 'bg-rose-100 border-rose-400 text-rose-800 dark:bg-rose-950/90 dark:border-rose-400/50 dark:text-rose-100' if category == 'error' else 'bg-emerald-100 border-emerald-400 text-emerald-800 dark:bg-emerald-950/90 dark:border-emerald-400/50 dark:text-emerald-100' }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="relative max-w-5xl mx-auto px-4 pt-6 {{ 'pb-28' if current_user.is_authenticated else 'pb-10' }}">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if current_user.is_authenticated %}
+  <nav class="fixed bottom-0 inset-x-0 z-40 backdrop-blur-xl bg-void/95 border-t border-edge pb-[env(safe-area-inset-bottom)]">
+    <div class="max-w-5xl mx-auto grid grid-cols-4">
+      {% set nav_items = [
+        ('main.dashboard', 'Dashboard', 'main', 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22 9 12 15 12 15 22'),
+        ('fitness.index', 'Workout', 'fitness', 'M6.5 6.5 17.5 17.5 M21 21l-1.5-1.5 M3 3l1.5 1.5 M9.5 3.5 3.5 9.5 M20.5 14.5l-6 6 M18 2l4 4 M2 18l4 4'),
+        ('home_assistant.panel', 'Home', 'home_assistant', 'M12 2v8 M18.4 6.6a9 9 0 1 1-12.77.04'),
+        ('creality_k2.panel', 'Printer', 'creality_k2', 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 9V3h12v6 M6 14h12v8H6z'),
+      ] %}
+      {% for endpoint, label, bp_name, icon_path in nav_items %}
+        {% set active = request.blueprint == bp_name %}
+        <a href="{{ url_for(endpoint) }}" class="relative flex flex-col items-center gap-1 py-2.5 min-h-[60px] justify-center group">
+          {% if active %}
+            <span class="absolute top-0 inset-x-6 h-0.5 rounded-full bg-gradient-to-r from-pulse to-neon shadow-glow-cyan"></span>
+          {% endif %}
+          <svg class="w-[22px] h-[22px] transition-colors {{ 'text-neon' if active else 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200' }}"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="{{ icon_path }}"/>
+          </svg>
+          <span class="text-[10px] font-display font-semibold tracking-wide uppercase transition-colors
+                       {{ 'text-neon' if active else 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200' }}">{{ label }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </nav>
+  {% endif %}
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

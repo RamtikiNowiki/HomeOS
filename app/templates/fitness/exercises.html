@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Exercise Library{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon transition-colors">← Workout</a>
+  <h1 class="text-2xl font-display font-bold mt-1">Exercise Library</h1>
+  <p class="text-xs text-slate-500 mt-0.5">{{ exercises|length }} exercise{{ 's' if exercises|length != 1 }}</p>
+</div>
+
+<div class="flex flex-wrap gap-2 mb-6">
+  <a href="{{ url_for('fitness.catalog') }}"
+     class="px-4 py-2.5 rounded-xl bg-raised border border-edge text-xs font-display uppercase tracking-widest text-slate-300 hover:border-pulse/50 transition-colors">
+    Browse Catalog
+  </a>
+  <form action="{{ url_for('fitness.catalog_import_starter') }}" method="post">
+    <input type="hidden" name="next" value="{{ url_for('fitness.exercises') }}">
+    <button type="submit"
+            class="px-4 py-2.5 rounded-xl font-display font-semibold uppercase tracking-widest text-xs
+                   bg-pulse/15 border border-pulse/40 text-pulse hover:bg-pulse/25 transition-colors">
+      Import Starter Library
+    </button>
+  </form>
+</div>
+
+<form action="{{ url_for('fitness.create_exercise') }}" method="post" class="mb-6">
+  <input type="hidden" name="next" value="{{ url_for('fitness.exercises') }}">
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500 mb-3">Add Exercise</p>
+    <div class="flex flex-col sm:flex-row gap-2.5">
+      <input type="text" name="name" required placeholder="Exercise name"
+             class="flex-1 px-4 py-3 rounded-xl bg-void border border-edge text-slate-100 text-sm
+                    focus:outline-none focus:border-pulse/60 focus:ring-1 focus:ring-pulse/40 transition-colors">
+      <input type="text" name="muscle_group" placeholder="Muscle group"
+             class="flex-1 px-4 py-3 rounded-xl bg-void border border-edge text-slate-100 text-sm
+                    focus:outline-none focus:border-pulse/60 focus:ring-1 focus:ring-pulse/40 transition-colors">
+      <button type="submit"
+              class="px-5 py-3 rounded-xl bg-pulse/15 border border-pulse/40 text-pulse font-display font-semibold uppercase tracking-widest text-xs hover:bg-pulse/25 transition-colors">
+        Add
+      </button>
+    </div>
+  </div>
+</form>
+
+{% if exercises %}
+<div class="space-y-3">
+  {% for exercise in exercises %}
+    {% set pr = exercise.personal_record() %}
+    <div class="rounded-2xl bg-panel border border-edge overflow-hidden">
+      <div class="flex items-center gap-3 p-4">
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-slate-100">{{ exercise.name }}</p>
+          <p class="text-xs text-slate-500">{{ exercise.muscle_group }}</p>
+          {% if pr %}
+            <p class="text-xs text-pulse mt-1">PR: {{ pr.weight|kg }} kg × {{ pr.reps }} (est. 1RM {{ pr.estimated_1rm|kg }} kg)</p>
+          {% endif %}
+        </div>
+        <button type="button" data-edit-exercise="{{ exercise.id }}"
+                class="shrink-0 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-pulse hover:bg-pulse/10 transition-colors">
+          Edit
+        </button>
+        <form action="{{ url_for('fitness.delete_exercise', exercise_id=exercise.id) }}" method="post"
+              onsubmit="return confirm('Delete “{{ exercise.name }}” and all its set history?');">
+          <button type="submit"
+                  class="shrink-0 px-3 py-2 rounded-xl text-xs text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
+            Delete
+          </button>
+        </form>
+      </div>
+      <form id="edit-exercise-{{ exercise.id }}" action="{{ url_for('fitness.edit_exercise', exercise_id=exercise.id) }}"
+            method="post" class="hidden px-4 pb-4 border-t border-edge/60 pt-3">
+        <div class="flex flex-col sm:flex-row gap-2.5">
+          <input type="text" name="name" required value="{{ exercise.name }}"
+                 class="flex-1 px-4 py-2.5 rounded-xl bg-void border border-edge text-slate-100 text-sm">
+          <input type="text" name="muscle_group" value="{{ exercise.muscle_group }}"
+                 class="flex-1 px-4 py-2.5 rounded-xl bg-void border border-edge text-slate-100 text-sm">
+          <button type="submit"
+                  class="px-4 py-2.5 rounded-xl text-xs font-display uppercase tracking-widest bg-pulse/15 border border-pulse/40 text-pulse">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="p-5 rounded-2xl bg-panel border border-edge text-sm text-slate-500">No exercises yet. Add your first one above.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-edit-exercise]");
+    if (!btn) return;
+    const form = document.getElementById("edit-exercise-" + btn.dataset.editExercise);
+    if (form) form.classList.toggle("hidden");
+  });
+</script>
+{% endblock %}

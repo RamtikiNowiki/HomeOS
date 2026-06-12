@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Greeting -->
+<div class="mb-6">
+  <p class="text-xs font-display font-semibold uppercase tracking-[0.2em] text-slate-500">Command Center</p>
+  <h1 class="text-2xl font-display font-bold mt-1">
+    Welcome back, <span class="{{ 'text-neon' if current_user.accent == 'cyan' else 'text-pulse' }}">{{ current_user.display_name }}</span>
+  </h1>
+</div>
+
+{% if active_session %}
+<a href="{{ url_for('fitness.session_detail', session_id=active_session.id) }}"
+   class="block mb-6 p-4 rounded-2xl border border-neon/40 bg-neon/5 hover:bg-neon/10 transition-colors">
+  <div class="flex items-center gap-3">
+    <span class="w-2.5 h-2.5 rounded-full bg-neon dot-pulse"></span>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-neon">Workout in progress — {{ active_session.name }}</p>
+      <p class="text-xs text-slate-400">{{ active_session.total_sets }} sets logged · tap to resume</p>
+    </div>
+    <svg class="text-neon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </div>
+</a>
+{% endif %}
+
+<!-- Widget grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+  <!-- Weight trend -->
+  <a href="{{ url_for('fitness.weight') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-pulse/50 transition-colors">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">Body Weight</p>
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-pulse/10 text-pulse border border-pulse/30 font-display uppercase tracking-wide">VeSync ready</span>
+    </div>
+    {% if weight.latest %}
+      <div class="flex items-end gap-3">
+        <p class="text-3xl font-display font-bold text-slate-100">{{ weight.latest.weight|kg }}<span class="text-base text-slate-500 font-body"> kg</span></p>
+        {% if weight.delta is not none %}
+          <span class="mb-1 flex items-center gap-1 text-xs font-semibold {{ 'text-emerald-400' if weight.delta <= 0 else 'text-amber-400' }}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              {% if weight.delta <= 0 %}<polyline points="19 12 12 19 5 12"/><line x1="12" y1="5" x2="12" y2="19"/>{% else %}<polyline points="5 12 12 5 19 12"/><line x1="12" y1="19" x2="12" y2="5"/>{% endif %}
+            </svg>
+            {{ weight.delta|abs|kg }} kg
+          </span>
+        {% endif %}
+      </div>
+      {% if weight.points %}
+        <svg class="w-full h-9 mt-3" viewBox="0 0 100 32" preserveAspectRatio="none">
+          <polyline points="{{ weight.points }}" fill="none" stroke="url(#spark)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          <defs><linearGradient id="spark" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#22d3ee"/></linearGradient></defs>
+        </svg>
+      {% endif %}
+      <p class="text-xs text-slate-500 mt-2">Last logged {{ weight.latest.log_date.strftime('%b %d') }}{% if weight.latest.body_fat %} · {{ weight.latest.body_fat|kg }}% BF{% endif %}</p>
+    {% else %}
+      <p class="text-2xl font-display font-bold text-slate-600">— kg</p>
+      <p class="text-xs text-slate-500 mt-2">No entries yet. Tap to log your first weigh-in.</p>
+    {% endif %}
+  </a>
+
+  <!-- Last workout -->
+  <a href="{{ url_for('fitness.history') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-neon/50 transition-colors">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">Last Workout</p>
+      <svg class="text-slate-600 group-hover:text-neon transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5"/><path d="M21 21l-1.5-1.5M3 3l1.5 1.5M9.5 3.5 3.5 9.5M20.5 14.5l-6 6M18 2l4 4M2 18l4 4"/></svg>
+    </div>
+    {% if last_session %}
+      <p class="text-lg font-semibold text-slate-100">{{ last_session.name }}</p>
+      <p class="text-xs text-slate-500 mt-0.5">{{ last_session.started_at.strftime('%A, %b %d') }}</p>
+      <div class="flex gap-4 mt-3">
+        <div>
+          <p class="text-xl font-display font-bold text-neon">{{ last_session.total_sets }}</p>
+          <p class="text-[10px] uppercase tracking-widest text-slate-500">sets</p>
+        </div>
+        <div>
+          <p class="text-xl font-display font-bold text-neon">{{ last_session.total_volume|kg }}</p>
+          <p class="text-[10px] uppercase tracking-widest text-slate-500">kg volume</p>
+        </div>
+        <div>
+          <p class="text-xl font-display font-bold text-neon">{{ last_session.exercises_performed|length }}</p>
+          <p class="text-[10px] uppercase tracking-widest text-slate-500">exercises</p>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-lg font-semibold text-slate-600">No sessions yet</p>
+      <p class="text-xs text-slate-500 mt-2">Head to the Workout tab to start your first session.</p>
+    {% endif %}
+  </a>
+
+  <!-- Smart home -->
+  <a href="{{ url_for('home_assistant.panel') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-amber-400/50 transition-colors">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">Smart Home</p>
+      <span class="w-2 h-2 rounded-full {{ 'bg-amber-400' if lights_on else 'bg-slate-600' }}"></span>
+    </div>
+    <div class="flex items-end gap-2">
+      <p class="text-3xl font-display font-bold {{ 'text-amber-300' if lights_on else 'text-slate-100' }}">{{ lights_on }}</p>
+      <p class="text-sm text-slate-500 mb-1">/ {{ lights|length }} lights on</p>
+    </div>
+    <p class="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+      {{ sensor.name }}: <span class="text-slate-300 font-medium">{{ sensor.temperature }}°C</span>
+    </p>
+  </a>
+
+  <!-- 3D printer -->
+  <a href="{{ url_for('creality_k2.panel') }}" class="group p-5 rounded-2xl bg-panel border border-edge shadow-card hover:border-emerald-400/50 transition-colors">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-display font-semibold uppercase tracking-widest text-slate-500">K2 Plus</p>
+      {% if printer.state == 'printing' %}
+        <span class="flex items-center gap-1.5 text-[10px] font-display uppercase tracking-wide text-emerald-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 dot-pulse"></span> Printing
+        </span>
+      {% else %}
+        <span class="text-[10px] font-display uppercase tracking-wide text-slate-500">{{ printer.state }}</span>
+      {% endif %}
+    </div>
+    <p class="text-sm font-medium text-slate-200 truncate" title="{{ printer.print_name }}">{{ printer.print_name }}</p>
+    <div class="mt-3 h-2 rounded-full bg-void border border-edge overflow-hidden">
+      <div class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon" style="width: {{ printer.progress }}%"></div>
+    </div>
+    <div class="flex justify-between mt-2 text-xs">
+      <span class="font-display font-bold text-emerald-400">{{ printer.progress }}%</span>
+      <span class="text-slate-500">{{ printer.time_remaining }} remaining</span>
+    </div>
+  </a>
+</div>
+{% endblock %}

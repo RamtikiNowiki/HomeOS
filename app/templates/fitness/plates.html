@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Plate Calculator{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
+  <h1 class="text-2xl font-display font-bold mt-1">Plate Calculator</h1>
+  <p class="text-xs text-slate-500 mt-0.5">Metric plates · per side</p>
+</div>
+
+<form method="post" class="p-4 rounded-2xl bg-panel border border-edge mb-6">
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Target (kg)</label>
+      <input type="number" name="target" step="1.25" min="0" required value="{{ target }}"
+             class="w-full px-4 py-4 rounded-xl bg-raised border border-edge text-xl font-display font-bold text-center">
+    </div>
+    <div>
+      <label class="block text-xs uppercase tracking-widest text-slate-500 mb-1.5">Bar (kg)</label>
+      <input type="number" name="bar" step="0.5" min="0" value="{{ bar }}"
+             class="w-full px-4 py-4 rounded-xl bg-raised border border-edge text-xl font-display font-bold text-center">
+    </div>
+  </div>
+  <button type="submit" class="w-full py-3 rounded-xl font-display uppercase tracking-widest text-sm text-white bg-gradient-to-r from-pulse to-neon">Calculate</button>
+</form>
+
+{% if result %}
+  {% if result.error %}
+    <p class="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-sm">{{ result.error }}</p>
+  {% else %}
+    <div class="p-5 rounded-2xl bg-panel border border-neon/40 text-center mb-4">
+      <p class="text-xs uppercase tracking-widest text-slate-500 mb-1">Load each side</p>
+      <div class="flex flex-wrap justify-center gap-2 my-4">
+        {% for plate in result.per_side %}
+          <span class="w-14 h-14 rounded-full grid place-items-center font-display font-bold text-sm
+                       {{ 'bg-slate-800 text-white' if plate >= 20 else 'bg-raised border border-edge text-slate-100' }}">
+            {{ plate|kg }}
+          </span>
+        {% else %}
+          <span class="text-slate-500 text-sm">Bar only</span>
+        {% endfor %}
+      </div>
+      <p class="text-3xl font-display font-bold text-neon">{{ result.achieved|kg }} kg</p>
+      <p class="text-xs text-slate-500 mt-1">bar {{ result.bar_weight|kg }} kg + {{ result.per_side|length * 2 }} plates</p>
+    </div>
+  {% endif %}
+{% endif %}
+
+<p class="text-xs text-slate-500 text-center">Standard plates: 25 · 20 · 15 · 10 · 5 · 2.5 · 1.25 kg</p>
+{% endblock %}

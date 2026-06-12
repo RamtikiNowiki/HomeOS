@@ -1,0 +1,20 @@
+# Exact pinned environment — generated via: pip freeze > requirements-lock.txt
+# Install with: pip install -r requirements-lock.txt
+# Docker build uses this file for reproducible images.
+
+blinker==1.9.0
+click==8.4.1
+Flask==3.1.0
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+gunicorn==23.0.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+packaging==26.2
+psycopg==3.3.4
+psycopg-binary==3.3.4
+python-dotenv==1.0.1
+SQLAlchemy==2.0.36
+typing_extensions==4.15.0
+Werkzeug==3.1.8

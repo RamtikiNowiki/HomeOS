@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Charts{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <a href="{{ url_for('fitness.index') }}" class="text-xs text-slate-500 hover:text-neon">← Workout</a>
+  <h1 class="text-2xl font-display font-bold mt-1">Progress Charts</h1>
+</div>
+
+<div class="space-y-6">
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Body Weight</h2>
+    <div class="chart-wrap"><canvas id="weight-chart"></canvas></div>
+  </div>
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Weekly Volume (kg)</h2>
+    <div class="chart-wrap"><canvas id="volume-chart"></canvas></div>
+  </div>
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+      <h2 class="text-sm font-display uppercase tracking-widest text-slate-400">Exercise Progress (est. 1RM)</h2>
+      <form method="get" class="flex gap-2">
+        <select name="exercise" onchange="this.form.submit()" class="px-3 py-2 rounded-lg bg-raised border border-edge text-sm">
+          {% for ex in exercises %}
+            <option value="{{ ex.id }}" {{ 'selected' if ex.id == selected_exercise_id }}>{{ ex.name }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div class="chart-wrap"><canvas id="exercise-chart"></canvas></div>
+  </div>
+
+  <div class="p-4 rounded-2xl bg-panel border border-edge">
+    <h2 class="text-sm font-display uppercase tracking-widest text-slate-400 mb-3">Recent Personal Records</h2>
+    {% if pr_events %}
+      <div class="space-y-2">
+        {% for ev in pr_events %}
+          <div class="flex items-center justify-between py-2 border-b border-edge/60 last:border-0">
+            <div>
+              <p class="font-medium text-slate-100">{{ ev.exercise }}</p>
+              <p class="text-xs text-slate-500">{{ ev.date.strftime('%b %d, %Y') }}</p>
+            </div>
+            <p class="font-display font-bold text-neon">{{ ev.weight|kg }} kg × {{ ev.reps }} <span class="text-xs text-slate-500 font-body">(1RM {{ ev.estimated_1rm|kg }})</span></p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500">Complete workouts to see PRs here.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const gridColor = document.documentElement.classList.contains("dark") ? "#3d4663" : "#c8d0e0";
+  const textColor = document.documentElement.classList.contains("dark") ? "#a8b4c7" : "#64748b";
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: textColor, maxRotation: 45 }, grid: { color: gridColor } },
+      y: { ticks: { color: textColor }, grid: { color: gridColor } },
+    },
+  };
+
+  const weightData = {{ weight_data|safe }};
+  if (weightData.labels.length) {
+    new Chart(document.getElementById("weight-chart"), {
+      type: "line",
+      data: {
+        labels: weightData.labels,
+        datasets: [{ data: weightData.values, borderColor: "#0891b2", backgroundColor: "rgba(8,145,178,0.1)", fill: true, tension: 0.3 }],
+      },
+      options: chartDefaults,
+    });
+  }
+
+  const volumeData = {{ volume_data|safe }};
+  if (volumeData.labels.length) {
+    new Chart(document.getElementById("volume-chart"), {
+      type: "bar",
+      data: {
+        labels: volumeData.labels,
+        datasets: [{ data: volumeData.values, backgroundColor: "#4f46e5" }],
+      },
+      options: chartDefaults,
+    });
+  }
+
+  const exerciseData = {{ exercise_data|safe }};
+  if (exerciseData.labels.length) {
+    new Chart(document.getElementById("exercise-chart"), {
+      type: "line",
+      data: {
+        labels: exerciseData.labels,
+        datasets: [{ data: exerciseData.values, borderColor: "#4f46e5", tension: 0.3 }],
+      },
+      options: chartDefaults,
+    });
+  }
+</script>
+{% endblock %}

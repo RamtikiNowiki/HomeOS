@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}3D Printer{% endblock %}
+
+{% block content %}
+<div data-printer-panel data-status-url="{{ url_for('creality_k2.status') }}">
+
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <p class="text-xs font-display font-semibold uppercase tracking-[0.2em] text-slate-500">Print Farm</p>
+      <h1 class="text-2xl font-display font-bold mt-1">Creality K2 Plus</h1>
+    </div>
+    {% if is_mock %}
+      <span class="text-[10px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase tracking-wide">Mock Mode</span>
+    {% endif %}
+  </div>
+
+  <!-- Current print job -->
+  <div class="p-5 rounded-2xl bg-panel border border-edge shadow-card mb-4">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        {% if status.state == 'printing' %}
+          <span class="w-2 h-2 rounded-full bg-emerald-400 dot-pulse"></span>
+          <p class="text-xs font-display font-bold uppercase tracking-widest text-emerald-400">Printing</p>
+        {% elif status.state == 'paused' %}
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <p class="text-xs font-display font-bold uppercase tracking-widest text-amber-400">Paused</p>
+        {% else %}
+          <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+          <p class="text-xs font-display font-bold uppercase tracking-widest text-slate-400">{{ status.state|capitalize }}</p>
+        {% endif %}
+      </div>
+      <span class="text-xs text-slate-500">{{ 'Online' if status.online else 'Offline' }}</span>
+    </div>
+
+    <p class="font-semibold text-lg text-slate-100 truncate mb-4" title="{{ status.print_name }}">{{ status.print_name }}</p>
+
+    <div class="h-3 rounded-full bg-void border border-edge overflow-hidden mb-2">
+      <div data-printer-bar class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-[width] duration-700"
+           style="width: {{ status.progress }}%"></div>
+    </div>
+    <div class="flex items-center justify-between">
+      <p data-printer-pct class="text-2xl font-display font-bold text-emerald-400">{{ status.progress }}%</p>
+      <div class="text-right">
+        <p class="text-sm font-semibold text-slate-200"><span data-printer-eta>{{ status.time_remaining }}</span> remaining</p>
+        <p class="text-xs text-slate-500">{{ status.time_elapsed }} elapsed</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemetry grid -->
+  <div class="grid grid-cols-2 gap-3">
+    <div class="p-4 rounded-2xl bg-panel border border-edge">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1.5">Nozzle</p>
+      <p class="text-xl font-display font-bold text-rose-400">{{ status.nozzle_temp|kg }}<span class="text-xs text-slate-500 font-body"> / {{ status.nozzle_target|kg }} °C</span></p>
+    </div>
+    <div class="p-4 rounded-2xl bg-panel border border-edge">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1.5">Bed</p>
+      <p class="text-xl font-display font-bold text-orange-400">{{ status.bed_temp|kg }}<span class="text-xs text-slate-500 font-body"> / {{ status.bed_target|kg }} °C</span></p>
+    </div>
+    <div class="p-4 rounded-2xl bg-panel border border-edge">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1.5">Layer</p>
+      <p class="text-xl font-display font-bold text-slate-200">{{ status.layer_current }}<span class="text-xs text-slate-500 font-body"> / {{ status.layer_total }}</span></p>
+    </div>
+    <div class="p-4 rounded-2xl bg-panel border border-edge">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-1.5">Filament</p>
+      <p class="text-xl font-display font-bold text-slate-200">{{ status.filament_used_m|kg }}<span class="text-xs text-slate-500 font-body"> m</span></p>
+    </div>
+  </div>
+
+  {% if is_mock %}
+  <p class="mt-6 text-xs text-slate-600 text-center">
+    Running on mock data — set <code class="text-slate-400">CREALITY_K2_HOST</code> to connect the real printer (Moonraker API).
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

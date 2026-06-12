@@ -1,0 +1,51 @@
+"""Application configuration.
+
+Local development falls back to SQLite so the app runs on Fedora without a
+local Postgres instance. Production (Docker Compose) injects DATABASE_URL
+pointing at the `db` service.
+"""
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def _database_uri() -> str:
+    url = os.environ.get("DATABASE_URL", "")
+    if not url:
+        return f"sqlite:///{BASE_DIR / 'instance' / 'dev.db'}"
+    # Route plain postgres URLs through the psycopg3 driver
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+class BaseConfig:
+    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_DATABASE_URI = _database_uri()
+    # Session hardening
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_HTTPONLY = True
+
+    # Home Assistant integration (mock mode until configured)
+    HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL", "")
+    HOME_ASSISTANT_TOKEN = os.environ.get("HOME_ASSISTANT_TOKEN", "")
+
+    # Creality K2 Plus integration (mock mode until configured)
+    CREALITY_K2_HOST = os.environ.get("CREALITY_K2_HOST", "")
+
+
+class DevelopmentConfig(BaseConfig):
+    DEBUG = True
+
+
+class ProductionConfig(BaseConfig):
+    DEBUG = False
+    SESSION_COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "0") == "1"
+
+
+def get_config():
+    env = os.environ.get("FLASK_ENV", "development")
+    return ProductionConfig if env == "production" else DevelopmentConfig

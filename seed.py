@@ -1,0 +1,193 @@
+"""Database setup & seeding.
+
+Idempotent: safe to run on every container boot. Creates all tables, both
+user profiles, a default exercise library, and (optionally) demo history so
+the UI looks alive on first load.
+
+    python seed.py
+
+Profiles are configured via environment variables (see .env.example):
+    SEED_USER1_USERNAME / SEED_USER1_NAME / SEED_USER1_PASSWORD
+    SEED_USER2_USERNAME / SEED_USER2_NAME / SEED_USER2_PASSWORD
+    SEED_DEMO_DATA=1|0
+"""
+import os
+import random
+from datetime import date, timedelta
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from app import create_app  # noqa: E402
+from app.extensions import db  # noqa: E402
+from app.models import Exercise, User, WeightLog, WorkoutSession, WorkoutSet, utcnow  # noqa: E402
+from app.fitness.service import import_starter_library  # noqa: E402
+from sqlalchemy import inspect, text  # noqa: E402
+
+
+def migrate_schema() -> None:
+    """Add new columns to existing tables (create_all does not alter tables)."""
+    inspector = inspect(db.engine)
+    if "workout_sets" in inspector.get_table_names():
+        columns = {c["name"] for c in inspector.get_columns("workout_sets")}
+        if "rpe" not in columns:
+            db.session.execute(text("ALTER TABLE workout_sets ADD COLUMN rpe FLOAT"))
+            db.session.commit()
+            print("  + migrated workout_sets.rpe column")
+    if "workout_sessions" in inspector.get_table_names():
+        columns = {c["name"] for c in inspector.get_columns("workout_sessions")}
+        if "workout_type" not in columns:
+            db.session.execute(text("ALTER TABLE workout_sessions ADD COLUMN workout_type VARCHAR(32)"))
+            db.session.commit()
+            print("  + migrated workout_sessions.workout_type column")
+        if "routine_id" not in columns:
+            db.session.execute(text("ALTER TABLE workout_sessions ADD COLUMN routine_id INTEGER"))
+            db.session.commit()
+            print("  + migrated workout_sessions.routine_id column")
+    if "workout_sets" in inspector.get_table_names():
+        columns = {c["name"] for c in inspector.get_columns("workout_sets")}
+        if "is_warmup" not in columns:
+            db.session.execute(text(
+                "ALTER TABLE workout_sets ADD COLUMN is_warmup BOOLEAN DEFAULT 0 NOT NULL"
+            ))
+            db.session.commit()
+            print("  + migrated workout_sets.is_warmup column")
+
+# Legacy names kept for demo seed compatibility
+DEFAULT_EXERCISES = [
+    ("Bench Press", "Chest"),
+    ("Squats", "Legs"),
+    ("Pull-ups", "Back"),
+    ("Overhead Press", "Shoulders"),
+    ("Deadlift", "Back"),
+]
+
+# Map legacy demo names to catalog names
+_DEMO_LIFT_MAP = {
+    "Bench Press": "Barbell Bench Press",
+    "Squats": "Back Squat",
+    "Pull-ups": "Pull-ups",
+}
+
+USER_SPECS = [
+    {
+        "username": os.environ.get("SEED_USER1_USERNAME", "ram"),
+        "display_name": os.environ.get("SEED_USER1_NAME", "Ram"),
+        "password": os.environ.get("SEED_USER1_PASSWORD", "changeme1"),
+        "accent": "indigo",
+        "start_weight": 82.0,
+        "weight_drift": -0.15,   # trending down slightly
+        "base_lifts": {"Bench Press": 60.0, "Squats": 80.0, "Pull-ups": 0.0},
+    },
+    {
+        "username": os.environ.get("SEED_USER2_USERNAME", "tiki"),
+        "display_name": os.environ.get("SEED_USER2_NAME", "Tiki"),
+        "password": os.environ.get("SEED_USER2_PASSWORD", "changeme2"),
+        "accent": "cyan",
+        "start_weight": 61.0,
+        "weight_drift": -0.05,
+        "base_lifts": {"Bench Press": 27.5, "Squats": 45.0, "Pull-ups": 0.0},
+    },
+]
+
+
+def get_or_create_user(spec: dict) -> tuple[User, bool]:
+    user = User.query.filter_by(username=spec["username"]).first()
+    if user:
+        return user, False
+    user = User(
+        username=spec["username"],
+        display_name=spec["display_name"],
+        accent=spec["accent"],
+    )
+    user.set_password(spec["password"])
+    db.session.add(user)
+    db.session.flush()
+    print(f"  + created user @{user.username} ({user.display_name})")
+    return user, True
+
+
+def ensure_user_library(user: User) -> dict[str, Exercise]:
+    added, _ = import_starter_library(user.id)
+    if added:
+        print(f"  + imported {added} catalog exercises for @{user.username}")
+    return {ex.name: ex for ex in Exercise.query.filter_by(user_id=user.id).all()}
+
+
+def seed_demo_history(user: User, spec: dict, exercises: dict[str, Exercise]) -> None:
+    """Two finished sessions (showing progressive overload) + weight logs."""
+    rng = random.Random(user.id)  # deterministic per user
+
+    # --- Workout sessions: 8 and 3 days ago, with small progression ---
+    session_plans = [
+        ("Push Day", 8, 0.0),    # days ago, progression offset (kg)
+        ("Full Body", 3, 2.5),
+    ]
+    for session_name, days_ago, progression in session_plans:
+        started = utcnow() - timedelta(days=days_ago, hours=2)
+        session = WorkoutSession(
+            user_id=user.id,
+            name=session_name,
+            started_at=started,
+            finished_at=started + timedelta(minutes=55),
+        )
+        db.session.add(session)
+        db.session.flush()
+
+        for exercise_name, base_weight in spec["base_lifts"].items():
+            catalog_name = _DEMO_LIFT_MAP.get(exercise_name, exercise_name)
+            exercise = exercises.get(catalog_name) or exercises.get(exercise_name)
+            if exercise is None:
+                continue
+            weight = base_weight + progression if base_weight > 0 else 0.0
+            for set_number in range(1, 4):
+                reps = rng.choice([8, 8, 10]) if base_weight > 0 else rng.choice([5, 6, 8])
+                db.session.add(
+                    WorkoutSet(
+                        session_id=session.id,
+                        exercise_id=exercise.id,
+                        set_number=set_number,
+                        reps=reps,
+                        weight=weight,
+                        completed=True,
+                    )
+                )
+        print(f"  + seeded session “{session_name}” for @{user.username}")
+
+    # --- Weight logs: 10 entries over ~3 weeks ---
+    weight = spec["start_weight"]
+    for i in range(10, 0, -1):
+        log_date = date.today() - timedelta(days=i * 2)
+        weight += spec["weight_drift"] + rng.uniform(-0.25, 0.25)
+        db.session.add(
+            WeightLog(
+                user_id=user.id,
+                log_date=log_date,
+                weight=round(weight, 1),
+                body_fat=round(rng.uniform(17.0, 24.0), 1),
+            )
+        )
+    print(f"  + seeded 10 weight logs for @{user.username}")
+
+
+def main() -> None:
+    app = create_app()
+    with app.app_context():
+        print("[seed] creating tables...")
+        db.create_all()
+        migrate_schema()
+
+        demo = os.environ.get("SEED_DEMO_DATA", "1") == "1"
+        for spec in USER_SPECS:
+            user, created = get_or_create_user(spec)
+            exercises = ensure_user_library(user)
+            if created and demo:
+                seed_demo_history(user, spec, exercises)
+
+        db.session.commit()
+        print("[seed] done.")
+
+
+if __name__ == "__main__":
+    main()
