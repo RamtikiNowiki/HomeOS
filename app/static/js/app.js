@@ -24,9 +24,11 @@ document.addEventListener("submit", (event) => {
   if (!confirm(form.dataset.confirm)) event.preventDefault();
 });
 
-/** ── PWA service worker ──────────────────────────────── */
+/** ── PWA service worker (root scope — required for Install app) ── */
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/static/sw.js").catch(() => {});
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+  });
 }
 
 /** ── JSON POST helper ────────────────────────────────── */

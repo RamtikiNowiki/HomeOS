@@ -94,6 +94,62 @@ The K2 Plus runs **Klipper + Moonraker** (same API as Voron/other Klipper printe
 
 You can still use **Fluidd/Creality Print** for bed mesh, file uploads, and macros — this hub is for dashboard-at-a-glance control.
 
+## PWA — Install on phone (standalone, no browser bar)
+
+The app is a Progressive Web App. Requirements for **Install app** (not just a bookmark):
+
+| Context | Works? |
+|---------|--------|
+| `http://127.0.0.1:5000` on your PC (dev) | Yes — test install in Chrome |
+| `http://192.168.x.x` from phone | No — HTTP LAN is not a secure context |
+| `https://…` via Tailscale Serve (prod) | Yes — use this on phones |
+
+### Dev: test install on your computer
+
+```bash
+python wsgi.py
+# Open http://127.0.0.1:5000 in Chrome
+# DevTools → Application → Manifest (check for errors)
+# Address bar → Install app / ⊕
+```
+
+Regenerate PNG icons after changing branding:
+
+```bash
+pip install Pillow
+python scripts/generate_pwa_icons.py
+```
+
+### Prod: HTTPS via Tailscale Serve (recommended for phones)
+
+On the Pi 400 (after `tailscale up`):
+
+```bash
+# One-time: expose port 80 on your tailnet with HTTPS
+sudo tailscale serve --bg http://127.0.0.1:80
+# Or if nginx is only inside Docker on host port 80, same command.
+
+# Check status
+tailscale serve status
+```
+
+Then on your phone (Tailscale connected):
+
+1. Open **`https://<pi-machine-name>.<tailnet>.ts.net`**
+2. Chrome → **Install app** (Android) or Safari → **Add to Home Screen** (iPhone)
+3. Launch from the **HomeOS** icon — no address bar (`display: standalone`)
+
+Invite Aylin to your tailnet so her iPhone can reach the same HTTPS URL.
+
+### PWA files (reference)
+
+| Path | Purpose |
+|------|---------|
+| `/manifest.webmanifest` | App name, icons, `standalone` display |
+| `/sw.js` | Service worker (site-wide scope) |
+| `/static/icons/icon-192.png` | Chrome install icon |
+| `/static/icons/icon-512.png` | Splash / install icon |
+
 ## HTTPS (optional later)
 
 Put nginx behind Cloudflare tunnel, or add a TLS cert volume and listen 443. Set `COOKIE_SECURE=1` when serving over HTTPS.

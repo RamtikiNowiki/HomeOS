@@ -28,6 +28,9 @@ def create_app(config_object=None) -> Flask:
     app.register_blueprint(home_assistant_bp, url_prefix="/home")
     app.register_blueprint(creality_k2_bp, url_prefix="/printer")
 
+    from .pwa import register_pwa_routes
+    register_pwa_routes(app)
+
     @app.template_filter("lbs")
     def lbs_filter(value):
         return format_weight(value)

@@ -1,4 +1,4 @@
-const CACHE = "homeos-v2";
+const CACHE = "homeos-v3";
 const ASSETS = [
   "/",
   "/static/css/app.css",
@@ -6,12 +6,16 @@ const ASSETS = [
   "/static/js/motion.js",
   "/static/js/fitness.js",
   "/static/js/tailwind.min.js",
-  "/static/manifest.webmanifest",
-  "/static/icons/icon.svg",
+  "/manifest.webmanifest",
+  "/static/icons/icon-192.png",
+  "/static/icons/icon-512.png",
+  "/static/icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {
@@ -25,19 +29,29 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
+
+  if (url.pathname === "/sw.js" || url.pathname === "/manifest.webmanifest") return;
+
   if (url.pathname.startsWith("/static/")) {
     e.respondWith(
-      caches.match(e.request).then((cached) =>
-        cached || fetch(e.request).then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-          return res;
-        })
+      caches.match(e.request).then(
+        (cached) =>
+          cached ||
+          fetch(e.request).then((res) => {
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(e.request, copy));
+            }
+            return res;
+          })
       )
     );
     return;
   }
+
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request).then((r) => r || caches.match("/")))
+    fetch(e.request).catch(() =>
+      caches.match(e.request).then((r) => r || caches.match("/"))
+    )
   );
 });

@@ -1,18 +1,40 @@
 {
+  "id": "/",
   "name": "Home OS & Fitness Hub",
   "short_name": "HomeOS",
   "description": "Workout tracking, weight log, smart home & printer hub",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f4f6fb",
   "theme_color": "#f4f6fb",
   "orientation": "portrait-primary",
+  "categories": ["fitness", "health", "productivity"],
   "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/static/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }
