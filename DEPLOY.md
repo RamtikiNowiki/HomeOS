@@ -1,5 +1,56 @@
 # Deploying Home OS Hub on Raspberry Pi 400
 
+## Should you run production on the Pi now?
+
+**Yes — for you and Aylin this is the right setup.** Docker Compose + Postgres + nginx is exactly what this repo is built for. It’s not overkill: two users, always-on Pi, data that survives reboots, and you can add HA/printer later via `.env` without rebuilding.
+
+Skip production only if you’re still actively developing on the Pi itself — in that case dev with SQLite on your laptop and deploy when stable. Since the app is in good shape, **go ahead and run prod on `192.168.1.254`.**
+
+## Quick start (Pi OS Lite — first time)
+
+SSH into the Pi, then:
+
+```bash
+cd ~/home-os-hub          # wherever you cloned
+git pull                  # get latest (bootstrap scripts, PWA fixes, etc.)
+bash scripts/pi-bootstrap.sh
+```
+
+That script will:
+
+1. Install Docker (if missing)
+2. Create `.env` with random `SECRET_KEY` / DB password (and default login passcodes)
+3. `docker compose up -d --build`
+4. Print `http://<pi-ip>/` — for you: **http://192.168.1.254/**
+
+Check status anytime:
+
+```bash
+bash scripts/pi-check.sh
+docker compose ps
+docker compose logs -f web
+```
+
+**Phones on Wi‑Fi:** open `http://192.168.1.254/` — same network, no Tailscale required at home.
+
+### Custom login passwords before bootstrap
+
+```bash
+export SEED_USER1_PASSWORD='your-ram-pass'
+export SEED_USER2_PASSWORD='your-aylin-pass'
+bash scripts/pi-bootstrap.sh
+```
+
+Or edit `.env` after bootstrap and recreate users (or change passwords in app if you add that later — for now passwords are set at seed time).
+
+### Manual setup (if you prefer)
+
+```bash
+cp .env.example .env
+nano .env    # SECRET_KEY, POSTGRES_PASSWORD, SEED_*_PASSWORD — all required
+docker compose up -d --build
+```
+
 ## Overview
 
 | Environment | Database | How to run |
