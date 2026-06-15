@@ -5,21 +5,51 @@
 <div data-printer-panel data-status-url="{{ url_for('creality_k2.status') }}"
      data-pause-url="{{ url_for('creality_k2.pause') }}"
      data-resume-url="{{ url_for('creality_k2.resume') }}"
-     data-cancel-url="{{ url_for('creality_k2.cancel') }}">
+     data-cancel-url="{{ url_for('creality_k2.cancel') }}"
+     data-preheat-url="{{ url_for('creality_k2.preheat') }}"
+     {% if camera.available %}data-webcam-url="{{ url_for('creality_k2.webcam_snapshot') }}"{% endif %}>
 
   <div class="mb-6 flex items-center justify-between gap-3">
     <div class="min-w-0">
       <h1 class="text-2xl font-display font-bold">Creality K2 Plus</h1>
-      <p class="text-xs text-slate-500 mt-0.5">Moonraker · Klipper</p>
+      <p class="text-xs text-slate-500 mt-0.5">
+        {% if status.host %}{{ status.host }} · {% endif %}Moonraker · Klipper
+      </p>
     </div>
-    {% if is_mock %}
-      <span class="text-[10px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase tracking-wide shrink-0">Mock Mode</span>
-    {% elif not status.online %}
-      <span class="text-[10px] px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 font-display uppercase tracking-wide shrink-0">Offline</span>
-    {% else %}
-      <span class="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase tracking-wide shrink-0">Live</span>
+    <div class="flex items-center gap-2 shrink-0">
+      {% if camera.fluidd_url and not is_mock %}
+      <a href="{{ camera.fluidd_url }}" target="_blank" rel="noopener"
+         class="text-[10px] px-2.5 py-1 rounded-full bg-raised border border-edge text-slate-400 hover:text-slate-200 font-display uppercase tracking-wide">
+        Fluidd ↗
+      </a>
+      {% endif %}
+      {% if is_mock %}
+        <span class="text-[10px] px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-display uppercase tracking-wide">Mock Mode</span>
+      {% elif not status.online %}
+        <span class="text-[10px] px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 font-display uppercase tracking-wide">Offline</span>
+      {% else %}
+        <span class="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-display uppercase tracking-wide">Live</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if camera.available %}
+  {% with label='Live Camera' %}{% include "fitness/_section_header.html" %}{% endwith %}
+  <div class="mb-4 rounded-2xl overflow-hidden border border-edge bg-void aspect-video relative">
+    <img data-printer-webcam src="{{ url_for('creality_k2.webcam_snapshot') }}"
+         alt="{{ camera.name or 'Printer camera' }}"
+         class="w-full h-full object-cover bg-black">
+  </div>
+  {% elif camera.needs_setup and not is_mock %}
+  {% with label='Live Camera' %}{% include "fitness/_section_header.html" %}{% endwith %}
+  <div class="p-4 rounded-2xl bg-panel border border-dashed border-edge mb-4 space-y-3">
+    <p class="text-sm text-slate-400">Camera not bridged yet — Moonraker has no webcam stream on this printer.</p>
+    <p class="text-xs text-slate-500">{{ camera.setup_hint }}</p>
+    {% if camera.fluidd_url %}
+    <p class="text-xs text-slate-500">Until then, open <a href="{{ camera.fluidd_url }}" target="_blank" rel="noopener" class="text-neon hover:underline">Fluidd on the printer</a> for the native Creality camera view (home network only).</p>
     {% endif %}
   </div>
+  {% endif %}
 
   {% with label='Current Job' %}{% include "fitness/_section_header.html" %}{% endwith %}
   <div class="p-5 rounded-2xl bg-panel border border-edge shadow-card mb-4 stagger-in">
@@ -107,12 +137,37 @@
     </div>
   </div>
 
-  {% with label='K2 Plus tips' %}{% include "fitness/_section_header.html" %}{% endwith %}
-  <div class="p-4 rounded-2xl bg-panel border border-dashed border-edge text-xs text-slate-500 space-y-2 mb-4">
-    <p><strong class="text-slate-400">Moonraker</strong> runs on port <code class="text-slate-400">7125</code> — same API as Klipper printers (pause/resume/cancel).</p>
-    <p><strong class="text-slate-400">LAN IP</strong> — find it on the printer screen or your router; set <code class="text-slate-400">CREALITY_K2_HOST</code> in Pi <code class="text-slate-400">.env</code>.</p>
-    <p><strong class="text-slate-400">Fluidd/Mainsail</strong> — you can still use the native UI for bed leveling, files, and macros; this panel is for quick status from Home OS.</p>
-    <p><strong class="text-slate-400">Cancel</strong> stops the job — use only when needed; let cool-down finish before clearing the bed.</p>
+  {% with label='Preheat' %}{% include "fitness/_section_header.html" %}{% endwith %}
+  <div class="flex flex-wrap gap-2 mb-4">
+    {% for preset in preheat_presets %}
+    <button type="button" data-preheat="{{ preset.id }}"
+            class="px-3 py-2 rounded-xl text-[10px] font-display uppercase tracking-widest border transition-colors
+                   {{ 'border-slate-600 text-slate-400 bg-raised hover:border-slate-400' if preset.id == 'off' else 'border-cyan-500/40 text-cyan-300 bg-cyan-500/10 hover:border-cyan-400' }}">
+      {{ preset.label }}{% if preset.nozzle %} · {{ preset.nozzle }}/{{ preset.bed }}°C{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  {% with label='Recent Prints' %}{% include "fitness/_section_header.html" %}{% endwith %}
+  <div class="p-4 rounded-2xl bg-panel border border-edge mb-4">
+    {% if print_history %}
+      <div class="space-y-2">
+        {% for job in print_history %}
+        <div class="flex items-start justify-between gap-3 py-2 border-b border-edge/60 last:border-0">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-slate-200 truncate" title="{{ job.filename }}">{{ job.filename }}</p>
+            <p class="text-[10px] text-slate-500">{{ job.finished }} · {{ job.duration }} · {{ job.filament_m }} m</p>
+          </div>
+          <span class="text-[10px] font-display uppercase tracking-wide shrink-0
+                       {{ 'text-emerald-400' if job.status == 'completed' else 'text-amber-400' if job.status == 'cancelled' else 'text-slate-500' }}">
+            {{ job.status }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500">No print history from Moonraker yet.</p>
+    {% endif %}
   </div>
 
   {% if is_mock %}

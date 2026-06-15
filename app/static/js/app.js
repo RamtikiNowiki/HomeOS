@@ -131,7 +131,32 @@ if (printerPanel) {
 
   setInterval(() => refreshStatus().catch(console.error), 12000);
 
+  const webcam = printerPanel.querySelector("[data-printer-webcam]");
+  const webcamUrl = printerPanel.dataset.webcamUrl;
+  if (webcam && webcamUrl) {
+    setInterval(() => {
+      webcam.src = `${webcamUrl}?t=${Date.now()}`;
+    }, 3000);
+  }
+
   printerPanel.addEventListener("click", async (e) => {
+    const preheatBtn = e.target.closest("[data-preheat]");
+    if (preheatBtn) {
+      const preset = preheatBtn.dataset.preheat;
+      if (preset === "off" && !confirm("Turn off bed and nozzle heaters?")) return;
+      preheatBtn.disabled = true;
+      try {
+        const s = await postJSON(printerPanel.dataset.preheatUrl, { preset });
+        applyPrinterStatus(s);
+      } catch (err) {
+        console.error(err);
+        alert("Preheat command failed.");
+      } finally {
+        preheatBtn.disabled = false;
+      }
+      return;
+    }
+
     const btn = e.target.closest("[data-printer-action]");
     if (!btn || btn.disabled) return;
     const action = btn.dataset.printerAction;

@@ -178,15 +178,29 @@ def migrate_kg_to_lbs() -> None:
     if row is not None and row[0] == "lbs":
         return
 
-    db.session.execute(
-        text(f"UPDATE workout_sets SET weight = ROUND(weight * {KG_TO_LB}, 2) WHERE weight > 0")
-    )
-    if "weight_logs" in tables:
-        db.session.execute(
-            text(f"UPDATE weight_logs SET weight = ROUND(weight * {KG_TO_LB}, 1)")
-        )
-
     dialect = db.engine.dialect.name
+    if dialect == "sqlite":
+        db.session.execute(
+            text(f"UPDATE workout_sets SET weight = ROUND(weight * {KG_TO_LB}, 2) WHERE weight > 0")
+        )
+        if "weight_logs" in tables:
+            db.session.execute(
+                text(f"UPDATE weight_logs SET weight = ROUND(weight * {KG_TO_LB}, 1)")
+            )
+    else:
+        db.session.execute(
+            text(
+                f"UPDATE workout_sets SET weight = ROUND((weight * {KG_TO_LB})::numeric, 2) "
+                "WHERE weight > 0"
+            )
+        )
+        if "weight_logs" in tables:
+            db.session.execute(
+                text(
+                    f"UPDATE weight_logs SET weight = ROUND((weight * {KG_TO_LB})::numeric, 1)"
+                )
+            )
+
     if dialect == "sqlite":
         db.session.execute(
             text("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('weight_unit', 'lbs')")

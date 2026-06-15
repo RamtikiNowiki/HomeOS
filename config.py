@@ -39,6 +39,9 @@ class BaseConfig:
     CREALITY_K2_HOST = os.environ.get("CREALITY_K2_HOST", "")
     CREALITY_K2_PORT = os.environ.get("CREALITY_K2_PORT", "7125")
     CREALITY_K2_API_KEY = os.environ.get("CREALITY_K2_API_KEY", "")
+    # Optional — Moonraker webcam snapshot URL (auto-detected when helper-script camera is installed)
+    CREALITY_K2_CAMERA_SNAPSHOT_URL = os.environ.get("CREALITY_K2_CAMERA_SNAPSHOT_URL", "")
+    CREALITY_K2_FLUIDD_URL = os.environ.get("CREALITY_K2_FLUIDD_URL", "")
 
 
 class DevelopmentConfig(BaseConfig):

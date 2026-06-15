@@ -16,6 +16,8 @@ Useful Moonraker endpoints wired here:
 from __future__ import annotations
 
 import math
+import urllib.request
+from datetime import datetime
 
 from flask import current_app
 
@@ -56,6 +58,13 @@ _QUERY_OBJECTS = (
     "heater_bed",
     "fan",
     "gcode_move",
+)
+
+PREHEAT_PRESETS = (
+    {"id": "pla", "label": "PLA", "nozzle": 210, "bed": 60},
+    {"id": "petg", "label": "PETG", "nozzle": 230, "bed": 80},
+    {"id": "abs", "label": "ABS", "nozzle": 250, "bed": 100},
+    {"id": "off", "label": "Cool down", "nozzle": 0, "bed": 0},
 )
 
 
@@ -240,6 +249,61 @@ class CrealityK2Service:
         self._post("/printer/print/cancel")
         return self.get_status()
 
+    def preheat(self, nozzle: float, bed: float, wait: bool = False) -> dict:
+        if self.is_mock:
+            _MOCK_STATUS["nozzle_target"] = float(nozzle)
+            _MOCK_STATUS["bed_target"] = float(bed)
+            return self.get_status()
+
+        lines = [
+            f"SET_HEATER_TEMPERATURE HEATER=extruder TARGET={nozzle}",
+            f"SET_HEATER_TEMPERATURE HEATER=heater_bed TARGET={bed}",
+        ]
+        if wait and nozzle > 0:
+            lines.append(f"TEMPERATURE_WAIT SENSOR=extruder MINIMUM={max(0, nozzle - 3)}")
+        if wait and bed > 0:
+            lines.append(f"TEMPERATURE_WAIT SENSOR=heater_bed MINIMUM={max(0, bed - 3)}")
+        self._post("/printer/gcode/script", {"script": "\n".join(lines)})
+        return self.get_status()
+
+    def get_print_history(self, limit: int = 8) -> list[dict]:
+        if self.is_mock:
+            return [
+                {
+                    "filename": "Demo_Part.gcode",
+                    "status": "completed",
+                    "finished": "Jun 10",
+                    "duration": "2h 14m",
+                    "filament_m": 12.4,
+                }
+            ]
+
+        try:
+            data = self._get("/server/history/list", f"limit={limit}&order=desc")
+        except HttpError:
+            return []
+
+        jobs = (data.get("result") or {}).get("jobs") or []
+        history: list[dict] = []
+        for job in jobs:
+            if not isinstance(job, dict):
+                continue
+            filename = job.get("filename") or "—"
+            if isinstance(filename, str) and "/" in filename:
+                filename = filename.rsplit("/", 1)[-1]
+            end_time = job.get("end_time")
+            finished = "—"
+            if end_time:
+                finished = datetime.fromtimestamp(float(end_time)).strftime("%b %d")
+            history.append({
+                "filename": filename,
+                "status": job.get("status") or "unknown",
+                "finished": finished,
+                "duration": _format_duration(job.get("print_duration")),
+                "filament_m": round(float(job.get("filament_used") or 0) / 1000.0, 1),
+            })
+        return history
+
     def connection_info(self) -> dict:
         return {
             "configured": not self.is_mock,
@@ -247,3 +311,98 @@ class CrealityK2Service:
             "port": self.port,
             "base_url": self.base_url if self.host else None,
         }
+
+    def _fluidd_url(self) -> str | None:
+        override = (current_app.config.get("CREALITY_K2_FLUIDD_URL") or "").strip()
+        if override:
+            return override
+        if self.host:
+            return f"http://{self.host}:4408"
+        return None
+
+    def _configured_snapshot_url(self) -> str | None:
+        override = (current_app.config.get("CREALITY_K2_CAMERA_SNAPSHOT_URL") or "").strip()
+        if override:
+            return override
+        return None
+
+    @staticmethod
+    def _snapshot_from_stream(stream_url: str | None) -> str | None:
+        if not stream_url:
+            return None
+        if "action=stream" in stream_url:
+            return stream_url.replace("action=stream", "action=snapshot")
+        if stream_url.endswith("/stream"):
+            return stream_url.rsplit("/", 1)[0] + "/snapshot"
+        return None
+
+    def get_camera_info(self) -> dict:
+        fluidd_url = self._fluidd_url()
+        if self.is_mock:
+            return {
+                "available": False,
+                "name": None,
+                "fluidd_url": fluidd_url,
+                "needs_setup": False,
+                "setup_hint": None,
+            }
+
+        snapshot_url = self._configured_snapshot_url()
+        name = "K2 Camera"
+        try:
+            data = self._get("/server/webcams/list")
+            webcams = (data.get("result") or {}).get("webcams") or []
+            if webcams:
+                cam = webcams[0]
+                name = cam.get("name") or name
+                snapshot_url = (
+                    cam.get("snapshot_url")
+                    or self._snapshot_from_stream(cam.get("stream_url"))
+                    or snapshot_url
+                )
+        except HttpError:
+            pass
+
+        available = bool(snapshot_url)
+        return {
+            "available": available,
+            "name": name if available else None,
+            "fluidd_url": fluidd_url,
+            "needs_setup": not available,
+            "setup_hint": (
+                "The K2 Plus camera uses Creality WebRTC. Install "
+                "Helper Script → option 11 (Camera Support) on the printer, "
+                "then reboot — Moonraker will expose a snapshot stream we can embed here."
+            ),
+        }
+
+    def fetch_webcam_snapshot(self) -> tuple[bytes | None, str]:
+        if self.is_mock:
+            return None, "image/jpeg"
+
+        snapshot_url = self._configured_snapshot_url()
+        try:
+            data = self._get("/server/webcams/list")
+            webcams = (data.get("result") or {}).get("webcams") or []
+            if webcams:
+                cam = webcams[0]
+                snapshot_url = (
+                    cam.get("snapshot_url")
+                    or self._snapshot_from_stream(cam.get("stream_url"))
+                    or snapshot_url
+                )
+        except HttpError:
+            pass
+
+        if not snapshot_url:
+            return None, "image/jpeg"
+
+        req = urllib.request.Request(snapshot_url, headers={"User-Agent": "HomeOS/1.0"})
+        if self.api_key:
+            req.add_header("X-Api-Key", self.api_key)
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                content_type = resp.headers.get("Content-Type", "image/jpeg")
+                return resp.read(), content_type.split(";")[0].strip()
+        except OSError as exc:
+            raise HttpError(0, f"Camera snapshot failed: {exc}") from exc

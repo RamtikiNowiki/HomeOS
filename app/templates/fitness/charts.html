@@ -12,12 +12,18 @@
 <div class="space-y-6">
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     {% with label='Body Weight' %}{% include "fitness/_section_header.html" %}{% endwith %}
-    <div class="chart-wrap" data-skeleton-chart><canvas id="weight-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart data-chart-id="weight">
+      <canvas id="weight-chart"></canvas>
+      <p data-chart-empty="weight" class="hidden text-sm text-slate-500 text-center py-8">Log body weight under Tools → Weight to see trends here.</p>
+    </div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
     {% with label='Weekly Volume (lb)' %}{% include "fitness/_section_header.html" %}{% endwith %}
-    <div class="chart-wrap" data-skeleton-chart><canvas id="volume-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart data-chart-id="volume">
+      <canvas id="volume-chart"></canvas>
+      <p data-chart-empty="volume" class="hidden text-sm text-slate-500 text-center py-8">Finish workouts to build weekly volume history.</p>
+    </div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
@@ -31,7 +37,10 @@
         </select>
       </form>
     </div>
-    <div class="chart-wrap" data-skeleton-chart><canvas id="exercise-chart"></canvas></div>
+    <div class="chart-wrap" data-skeleton-chart data-chart-id="exercise">
+      <canvas id="exercise-chart"></canvas>
+      <p data-chart-empty="exercise" class="hidden text-sm text-slate-500 text-center py-8">Complete logged sets for this exercise to chart estimated 1RM.</p>
+    </div>
   </div>
 
   <div class="p-4 rounded-2xl bg-panel border border-edge">
@@ -56,58 +65,92 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 <script>
-  const gridColor = document.documentElement.classList.contains("dark") ? "#3d4663" : "#c8d0e0";
-  const textColor = document.documentElement.classList.contains("dark") ? "#a8b4c7" : "#64748b";
-  const chartDefaults = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { ticks: { color: textColor, maxRotation: 45 }, grid: { color: gridColor } },
-      y: { ticks: { color: textColor }, grid: { color: gridColor } },
-    },
-  };
-
-  const weightData = {{ weight_data|safe }};
-  if (weightData.labels.length) {
-    new Chart(document.getElementById("weight-chart"), {
-      type: "line",
-      data: {
-        labels: weightData.labels,
-        datasets: [{ data: weightData.values, borderColor: "#0891b2", backgroundColor: "rgba(8,145,178,0.1)", fill: true, tension: 0.3 }],
+  document.addEventListener("DOMContentLoaded", () => {
+    const gridColor = document.documentElement.classList.contains("dark") ? "#3d4663" : "#c8d0e0";
+    const textColor = document.documentElement.classList.contains("dark") ? "#a8b4c7" : "#64748b";
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: textColor, maxRotation: 45 }, grid: { color: gridColor } },
+        y: { ticks: { color: textColor }, grid: { color: gridColor } },
       },
-      options: chartDefaults,
-    });
-  }
+    };
 
-  const volumeData = {{ volume_data|safe }};
-  if (volumeData.labels.length) {
-    new Chart(document.getElementById("volume-chart"), {
-      type: "bar",
-      data: {
-        labels: volumeData.labels,
-        datasets: [{ data: volumeData.values, backgroundColor: "#4f46e5" }],
-      },
-      options: chartDefaults,
-    });
-  }
+    function reveal(id) {
+      const wrap = document.querySelector(`[data-chart-id="${id}"]`);
+      if (wrap && window.HomeOSMotion) HomeOSMotion.revealChartWrap(wrap);
+    }
 
-  const exerciseData = {{ exercise_data|safe }};
-  if (exerciseData.labels.length) {
-    new Chart(document.getElementById("exercise-chart"), {
-      type: "line",
-      data: {
-        labels: exerciseData.labels,
-        datasets: [{ data: exerciseData.values, borderColor: "#4f46e5", tension: 0.3 }],
-      },
-      options: chartDefaults,
-    });
-  }
+    function showEmpty(id) {
+      const wrap = document.querySelector(`[data-chart-id="${id}"]`);
+      wrap?.querySelector("canvas")?.classList.add("hidden");
+      wrap?.querySelector(`[data-chart-empty="${id}"]`)?.classList.remove("hidden");
+      reveal(id);
+    }
 
-  if (window.HomeOSMotion) {
-    document.querySelectorAll("[data-skeleton-chart]").forEach((w) => HomeOSMotion.revealChartWrap(w));
-  }
+    function renderLine(id, canvasId, data, color, fill) {
+      if (!data.labels.length) {
+        showEmpty(id);
+        return;
+      }
+      new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: {
+          labels: data.labels,
+          datasets: [{
+            data: data.values,
+            borderColor: color,
+            backgroundColor: fill,
+            fill: !!fill,
+            tension: 0.3,
+          }],
+        },
+        options: chartDefaults,
+      });
+      reveal(id);
+    }
+
+    function renderBar(id, canvasId, data, color) {
+      if (!data.labels.length) {
+        showEmpty(id);
+        return;
+      }
+      new Chart(document.getElementById(canvasId), {
+        type: "bar",
+        data: {
+          labels: data.labels,
+          datasets: [{ data: data.values, backgroundColor: color }],
+        },
+        options: chartDefaults,
+      });
+      reveal(id);
+    }
+
+    if (typeof Chart === "undefined") {
+      document.querySelectorAll("[data-skeleton-chart]").forEach((wrap) => {
+        wrap.querySelector("canvas")?.classList.add("hidden");
+        const id = wrap.dataset.chartId;
+        const msg = wrap.querySelector(`[data-chart-empty="${id}"]`);
+        if (msg) {
+          msg.textContent = "Charts failed to load. Try refreshing the page.";
+          msg.classList.remove("hidden");
+        }
+        if (window.HomeOSMotion) HomeOSMotion.revealChartWrap(wrap);
+      });
+      return;
+    }
+
+    const weightData = {{ weight_data|safe }};
+    const volumeData = {{ volume_data|safe }};
+    const exerciseData = {{ exercise_data|safe }};
+
+    renderLine("weight", "weight-chart", weightData, "#0891b2", "rgba(8,145,178,0.1)");
+    renderBar("volume", "volume-chart", volumeData, "#4f46e5");
+    renderLine("exercise", "exercise-chart", exerciseData, "#4f46e5", null);
+  });
 </script>
 {% endblock %}

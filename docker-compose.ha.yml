@@ -1,0 +1,25 @@
+# Optional Home Assistant container — use ONLY if you do not have a dedicated HA device.
+#
+# Start:  docker compose -f docker-compose.yml -f docker-compose.ha.yml up -d
+# Stop:   docker compose -f docker-compose.yml -f docker-compose.ha.yml stop homeassistant
+#
+# Best practice: run Home Assistant OS on a *separate* Pi/mini-PC if possible.
+# This Pi 400 already runs Postgres + Flask — adding HA here works for Wi‑Fi/cloud
+# devices (Govee, Ecobee) but is tight if you add many integrations or USB radios.
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    privileged: true
+    environment:
+      TZ: America/New_York
+    volumes:
+      - ha_config:/config
+    ports:
+      - "${HA_PORT:-8123}:8123"
+    networks:
+      - backend
+
+volumes:
+  ha_config:

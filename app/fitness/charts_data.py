@@ -23,26 +23,28 @@ def weight_chart(user_id: int, limit: int = 30) -> dict:
 
 
 def weekly_volume_chart(user_id: int, weeks: int = 12) -> dict:
-    start = utcnow() - timedelta(weeks=weeks)
-    rows = (
-        db.session.query(
-            func.strftime("%Y-W%W", WorkoutSession.started_at).label("week"),
-            func.sum(WorkoutSet.weight * WorkoutSet.reps).label("volume"),
+    if db.engine.dialect.name == "sqlite":
+        start = utcnow() - timedelta(weeks=weeks)
+        rows = (
+            db.session.query(
+                func.strftime("%Y-W%W", WorkoutSession.started_at).label("week"),
+                func.sum(WorkoutSet.weight * WorkoutSet.reps).label("volume"),
+            )
+            .join(WorkoutSet, WorkoutSet.session_id == WorkoutSession.id)
+            .filter(
+                WorkoutSession.user_id == user_id,
+                WorkoutSession.finished_at.isnot(None),
+                WorkoutSession.started_at >= start,
+                WorkoutSet.completed.is_(True),
+                WorkoutSet.is_warmup.is_(False),
+            )
+            .group_by("week")
+            .order_by("week")
+            .all()
         )
-        .join(WorkoutSet, WorkoutSet.session_id == WorkoutSession.id)
-        .filter(
-            WorkoutSession.user_id == user_id,
-            WorkoutSession.finished_at.isnot(None),
-            WorkoutSession.started_at >= start,
-            WorkoutSet.completed.is_(True),
-            WorkoutSet.is_warmup.is_(False),
-        )
-        .group_by("week")
-        .order_by("week")
-        .all()
-    )
-    # Postgres uses different date format — handle both
-    if not rows:
+        if not rows:
+            rows = _weekly_volume_fallback(user_id, weeks)
+    else:
         rows = _weekly_volume_fallback(user_id, weeks)
     return {
         "labels": [r[0] for r in rows],

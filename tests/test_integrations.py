@@ -41,3 +41,14 @@ def test_k2_mock_pause_resume():
         assert paused["state"] == "paused"
         resumed = svc.resume_print()
         assert resumed["state"] == "printing"
+
+
+def test_k2_mock_preheat_and_history():
+    app = create_app()
+    with app.app_context():
+        svc = CrealityK2Service()
+        heated = svc.preheat(210, 60)
+        assert heated["nozzle_target"] == 210
+        history = svc.get_print_history()
+        assert len(history) >= 1
+        assert "filename" in history[0]
