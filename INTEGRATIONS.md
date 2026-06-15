@@ -115,7 +115,19 @@ Restart: `docker compose up -d`
 4. Home Assistant (container or separate Pi)
 5. Add Govee / Ecobee in HA
 6. Run `configure-ha-env.sh`
-7. Later: Hermes + Ollama on Pi 5 (optional)
+7. **Pi 5 node:** Ollama + Hermes Agent → HA over LAN → future “Ask Home” in Flask
+
+### Future: Hermes + Ollama (Pi 5)
+
+| Piece | Role |
+|-------|------|
+| **Pi 400** | Home OS + Home Assistant (unchanged) |
+| **Pi 5 8GB** | Ollama (local LLM) + Hermes Agent |
+| **Hermes → HA** | REST/WebSocket — control lights, climate, automations |
+| **Home OS → Hermes** | Planned “Ask Home” chat panel in Flask |
+| **Telegram** | Optional Hermes channel for away-from-home commands |
+
+Example future flow: user types *“turn off all lights”* in Home OS → Flask calls Hermes API on Pi 5 → Hermes calls HA services → lights off.
 
 ---
 
