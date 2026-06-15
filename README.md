@@ -1,93 +1,139 @@
-# Home OS & Fitness Hub
+# Home OS Hub
 
-A self-hosted, mobile-first dashboard for two people: progressive-overload workout tracking, weight logging (VeSync-ready), smart home controls (Home Assistant-ready), and Creality K2 Plus print monitoring. Dark "home lab" aesthetic, built to run on a Raspberry Pi 400 behind nginx.
+Self-hosted homelab dashboard on **Raspberry Pi** — multi-container Docker stack, secure remote access, and LAN integrations for fitness tracking, smart home, and 3D printer monitoring.
 
-## Stack
+Built as a **homelab / infrastructure portfolio project** (Docker, networking, Linux ops, IoT glue) — not a commercial app.
 
-- **Backend:** Flask (application factory + blueprints), Flask-Login, SQLAlchemy
-- **Database:** PostgreSQL in production, SQLite fallback for local dev
-- **Frontend:** Jinja templates + Tailwind CSS (CDN), vanilla JS, persistent bottom nav
-- **Deployment:** Docker Compose (web + db + nginx), multi-arch images (x86 / arm64)
+## What it does
 
-## Project layout
+- **Two-user web dashboard** — workouts, body weight, stats, PWA install on phones
+- **Smart home panel** — Home Assistant REST (lights, sensors)
+- **3D printer panel** — Creality K2 Plus via Moonraker (status, preheat, history, pause/resume/cancel)
+- **Production stack** — nginx → Gunicorn/Flask → PostgreSQL
+- **Remote access** — Tailscale Serve (HTTPS on tailnet for mobile PWA)
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    Phone[Phone PWA]
+    Browser[Browser LAN]
+  end
+
+  subgraph pi [Raspberry Pi 400]
+    TS[Tailscale Serve HTTPS]
+    NGX[nginx :80]
+    WEB[Flask / Gunicorn]
+    DB[(PostgreSQL)]
+    HA[Home Assistant :8123]
+    NGX --> WEB --> DB
+  end
+
+  subgraph lan [Home LAN]
+    K2[K2 Plus Moonraker :7125]
+    IOT[Govee / Ecobee via HA]
+  end
+
+  Phone --> TS --> NGX
+  Browser --> NGX
+  WEB --> HA
+  WEB --> K2
+  HA --> IOT
+```
 
 ```
-home-os-hub/
-├── app/
-│   ├── __init__.py            # application factory
-│   ├── extensions.py          # db, login_manager
-│   ├── models.py              # User, Exercise, WorkoutSession, WorkoutSet, WeightLog
-│   ├── auth/                  # login / logout / profile switching
-│   ├── main/                  # dashboard widgets
-│   ├── fitness/               # sessions, sets, weight logs, history
-│   ├── home_assistant/        # HA panel + service class (mock mode)
-│   ├── creality_k2/           # printer panel + service class (mock mode)
-│   ├── templates/
-│   └── static/
-├── config.py
-├── wsgi.py
-├── seed.py                    # idempotent table creation + profile/demo seeding
-├── Dockerfile                 # multi-stage production build
-├── docker/entrypoint.sh       # waits for db, seeds, starts gunicorn
-├── nginx/nginx.conf           # reverse proxy
-├── docker-compose.yml
-├── .env.example
-├── README.md                 # Quick start guide
-└── PROJECT.md                # Full project reference (features, routes, data model)
+Phone (Tailscale HTTPS) ──► nginx:80 ──► Flask:8000 ──► PostgreSQL
+                                │              │
+                                │              ├──► Home Assistant :8123
+                                │              └──► Printer Moonraker :7125 (LAN)
 ```
 
-## Local development (Fedora)
+## Tech stack
 
-No Postgres needed — the app falls back to SQLite at `instance/dev.db`.
+| Layer | Technology |
+|-------|------------|
+| App | Flask, Flask-Login, SQLAlchemy, Jinja |
+| Database | PostgreSQL 16 (prod), SQLite (local dev) |
+| Reverse proxy | nginx |
+| Containers | Docker Compose (web, db, nginx, optional HA) |
+| Remote access | Tailscale Serve (HTTPS) |
+| Integrations | Home Assistant REST, Moonraker/Klipper |
+| Frontend | Tailwind CSS, vanilla JS, Chart.js, PWA |
+
+## Quick start — local dev
+
+No Postgres required — SQLite at `instance/dev.db`.
 
 ```bash
-cd home-os-hub
-python3 -m venv .venv
-source .venv/bin/activate
+git clone https://github.com/RamtikiNowiki/HomeOS.git
+cd HomeOS
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-
-cp .env.example .env          # optional: customize usernames/passwords
-python seed.py                # creates tables, both profiles, demo data
-python wsgi.py                # serves on http://localhost:5000
+cp .env.example .env
+python seed.py
+python wsgi.py    # http://127.0.0.1:5000
 ```
 
-**Phone on same Wi‑Fi:** use `http://<your-pc-ip>:5000` (printed when the server starts). If blocked on Fedora: `sudo firewall-cmd --add-port=5000/tcp --permanent && sudo firewall-cmd --reload`
+Default dev logins (override in `.env` before `seed.py`):
 
-Default dev logins (override via `.env` before seeding):
+| Profile | Username | Password |
+|---------|----------|----------|
+| User 1 | `ram` | `changeme1` |
+| User 2 | `aylin` | `changeme2` |
 
-| Profile | Username | Password    |
-|---------|----------|-------------|
-| User 1  | `ram`    | `changeme1` |
-| User 2  | `aylin`  | `changeme2` |
-
-See **[DEPLOY.md](DEPLOY.md)** for Raspberry Pi Docker deployment (Postgres + nginx).
-
-## Database
-
-- **Dev:** SQLite at `instance/dev.db` when `DATABASE_URL` is unset
-- **Production:** PostgreSQL via Docker Compose — see `docker-compose.yml`
-
-## Production deployment (Raspberry Pi 400)
+## Production — Raspberry Pi
 
 ```bash
-git clone <this repo> && cd home-os-hub
+git clone https://github.com/RamtikiNowiki/HomeOS.git && cd HomeOS
 cp .env.example .env
-nano .env                     # set SECRET_KEY, POSTGRES_PASSWORD, profile passcodes
+nano .env    # SECRET_KEY, POSTGRES_PASSWORD, profile passcodes
 docker compose up -d --build
 ```
 
-That's it. The entrypoint waits for Postgres, runs the idempotent seed (creating both profiles on first boot), and starts gunicorn. nginx serves the app on port 80 — open `http://<pi-address>/`.
+Or use the bootstrap script: **`bash scripts/pi-bootstrap.sh`**
 
-- Postgres data persists in the `pgdata` named volume.
-- Set `SEED_DEMO_DATA=0` in `.env` before first boot if you want clean profiles with no dummy history.
-- Logs: `docker compose logs -f web`
+Open `http://<pi-lan-ip>/` — see **[DEPLOY.md](DEPLOY.md)** for Pi setup, PWA, and Tailscale HTTPS.
 
-## Wiring up the real integrations later
+## Integrations
 
-| Integration   | Env vars                                    | Where to implement                      |
-|---------------|---------------------------------------------|-----------------------------------------|
-| Home Assistant| `HOME_ASSISTANT_URL`, `HOME_ASSISTANT_TOKEN`| `app/home_assistant/service.py`          |
-| Creality K2   | `CREALITY_K2_HOST` (Moonraker API)          | `app/creality_k2/service.py`             |
-| VeSync scale  | —                                           | write into the existing `WeightLog` model|
+| Integration | Config | Docs |
+|-------------|--------|------|
+| Home Assistant | `.env` → `HOME_ASSISTANT_*` | [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Creality K2 / Moonraker | `.env` → `CREALITY_K2_HOST` | [INTEGRATIONS.md](INTEGRATIONS.md) |
+| Optional HA container | `docker-compose.ha.yml` | [INTEGRATIONS.md](INTEGRATIONS.md) |
 
-Each service class has an `is_mock` property — the UI shows a "Mock Mode" badge until real credentials are configured, and the mock branches are clearly marked for replacement.
+Helper script: `scripts/configure-ha-env.sh` wires HA token into `.env` and restarts the app.
+
+## Security
+
+- **No secrets in git** — `.env` is gitignored; use `.env.example` as template
+- **HTTPS remote** — Tailscale Serve + `COOKIE_SECURE=1` for production PWA
+- **HA auth** — long-lived access tokens only (never commit tokens)
+
+See **[SECURITY.md](SECURITY.md)** before deploying or contributing.
+
+## Project docs
+
+| File | Purpose |
+|------|---------|
+| [DEPLOY.md](DEPLOY.md) | Pi deployment, PWA, Tailscale |
+| [INTEGRATIONS.md](INTEGRATIONS.md) | HA, K2, camera, architecture roadmap |
+| [PROJECT.md](PROJECT.md) | Full feature and route reference |
+
+## Roadmap
+
+- [ ] Govee / Ecobee via Home Assistant
+- [ ] K2 camera (Creality Helper Script on printer)
+- [ ] Print-complete notifications (HA automation)
+- [ ] Pi 5 node: Hermes Agent + Ollama (planned)
+
+## Author
+
+Homelab infrastructure portfolio — Docker, Linux, networking, IoT integration.
+
+Relevant certs: **AZ-104**, **CCNA**, **Security+**, **RHCSA** (in progress).
+
+## License
+
+Private homelab project — add a license file if you fork for public use.
