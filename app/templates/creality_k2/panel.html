@@ -48,36 +48,38 @@
   {# ── Camera ── #}
   {% if camera.available %}
   <div data-printer-camera-stage class="printer-camera-stage mb-4">
-    <button type="button" data-printer-camera-open data-ptr-ignore
-            class="printer-camera-wrap group w-full rounded-2xl overflow-hidden border border-edge bg-black aspect-video relative touch-manipulation cursor-pointer"
-            aria-label="Open camera fullscreen">
-      <img data-printer-webcam src="{{ url_for('creality_k2.webcam_snapshot') }}"
-           alt="{{ camera.name or 'Printer camera' }}"
-           class="w-full h-full object-cover pointer-events-none select-none">
-      <div class="printer-camera-shimmer absolute inset-0 pointer-events-none" data-printer-camera-loading aria-hidden="true"></div>
-      <div class="printer-camera-bar absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-between gap-2 pointer-events-none">
-        <div class="text-left min-w-0">
-          <p class="text-[10px] font-display uppercase tracking-widest text-white/60">Live camera</p>
-          <p class="text-xs text-white/90 truncate" data-printer-camera-hint>Tap to fullscreen</p>
+    <div class="printer-camera-shell relative rounded-2xl overflow-hidden border border-edge bg-black aspect-video">
+      <button type="button" data-printer-camera-open data-ptr-ignore
+              class="printer-camera-wrap group block w-full h-full relative touch-manipulation cursor-pointer p-0 border-0 bg-transparent text-left"
+              aria-label="Open camera fullscreen">
+        <img data-printer-webcam src="{{ url_for('creality_k2.webcam_snapshot') }}"
+             alt="{{ camera.name or 'Printer camera' }}"
+             class="w-full h-full object-cover pointer-events-none select-none">
+        <div class="printer-camera-shimmer absolute inset-0 pointer-events-none" data-printer-camera-loading aria-hidden="true"></div>
+        <div class="printer-camera-bar absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-between gap-2 pointer-events-none">
+          <div class="text-left min-w-0">
+            <p class="text-[10px] font-display uppercase tracking-widest text-white/60">Live camera</p>
+            <p class="text-xs text-white/90 truncate" data-printer-camera-hint>Tap to fullscreen</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span data-printer-camera-overlay-pct class="hidden text-sm font-display font-bold text-emerald-400"></span>
+            <span class="printer-camera-fs-icon w-9 h-9 rounded-full bg-white/10 border border-white/20 grid place-items-center text-white/90">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </span>
+          </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span data-printer-camera-overlay-pct class="hidden text-sm font-display font-bold text-emerald-400"></span>
-          <span class="printer-camera-fs-icon w-9 h-9 rounded-full bg-white/10 border border-white/20 grid place-items-center text-white/90">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-          </span>
-        </div>
-      </div>
-    </button>
-    <div class="printer-camera-fsui" aria-hidden="true">
-      <button type="button" data-printer-camera-close
-              class="printer-camera-fsui__close w-11 h-11 rounded-full bg-black/60 border border-white/25 text-white grid place-items-center touch-manipulation"
-              aria-label="Exit fullscreen">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
-      <div class="printer-camera-fsui__stats">
-        <span data-printer-fs-pct class="text-lg font-display font-bold text-emerald-400"></span>
-        <span data-printer-fs-layer class="text-xs text-white/80"></span>
-        <span data-printer-fs-eta class="text-xs text-white/60"></span>
+      <div class="printer-camera-fsui" hidden aria-hidden="true">
+        <button type="button" data-printer-camera-close
+                class="printer-camera-fsui__close w-11 h-11 rounded-full bg-black/60 border border-white/25 text-white grid place-items-center touch-manipulation"
+                aria-label="Exit fullscreen">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="printer-camera-fsui__stats">
+          <span data-printer-fs-pct class="text-lg font-display font-bold text-emerald-400"></span>
+          <span data-printer-fs-layer class="text-xs text-white/80"></span>
+          <span data-printer-fs-eta class="text-xs text-white/60"></span>
+        </div>
       </div>
     </div>
   </div>

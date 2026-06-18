@@ -68,13 +68,17 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
-/* Theme toggle icons — driven by data-theme, not Tailwind dark: (PWA-safe) */
-html[data-theme="light"] .theme-icon-sun { display: none; }
-html[data-theme="light"] .theme-icon-moon { display: block; }
+/* Theme toggle icons — one visible at a time (JS sets hidden; CSS backs it up) */
+.theme-icon-slot { display: block; }
+.theme-icon-sun[hidden],
+.theme-icon-moon[hidden] { display: none !important; }
+
+html[data-theme="light"] .theme-icon-sun { display: none !important; }
+html[data-theme="light"] .theme-icon-moon { display: block !important; }
 html[data-theme="dark"] .theme-icon-sun,
-html.dark .theme-icon-sun { display: block; }
+html.dark .theme-icon-sun { display: block !important; }
 html[data-theme="dark"] .theme-icon-moon,
-html.dark .theme-icon-moon { display: none; }
+html.dark .theme-icon-moon { display: none !important; }
 
 /* Dark mode pink */
 html.dark[data-accent="pink"],
@@ -1385,10 +1389,16 @@ html:not(.dark) .fitness-subnav-link.is-active {
 .printer-camera-stage {
   position: relative;
 }
+.printer-camera-shell {
+  position: relative;
+}
 .printer-camera-wrap:active { opacity: 0.95; }
 .printer-camera-wrap:active .printer-camera-fs-icon { transform: scale(0.92); }
 .printer-camera-fs-icon { transition: transform 0.12s ease; }
 
+.printer-camera-fsui[hidden] {
+  display: none !important;
+}
 .printer-camera-fsui {
   display: none;
   pointer-events: none;
@@ -1403,7 +1413,7 @@ html:not(.dark) .fitness-subnav-link.is-active {
   flex-direction: column;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
-.printer-camera-stage.is-fullscreen .printer-camera-wrap {
+.printer-camera-stage.is-fullscreen .printer-camera-shell {
   flex: 1 1 auto;
   width: 100%;
   height: 100%;
@@ -1413,24 +1423,29 @@ html:not(.dark) .fitness-subnav-link.is-active {
   border-radius: 0;
   border: none;
 }
+.printer-camera-stage.is-fullscreen .printer-camera-wrap {
+  width: 100%;
+  height: 100%;
+}
 .printer-camera-stage.is-fullscreen .printer-camera-wrap img {
   object-fit: contain;
 }
 .printer-camera-stage.is-fullscreen .printer-camera-bar {
   display: none;
 }
-.printer-camera-stage.is-fullscreen .printer-camera-fsui {
+.printer-camera-stage.is-fullscreen .printer-camera-fsui:not([hidden]) {
   display: block;
   pointer-events: none;
   position: absolute;
   inset: 0;
+  z-index: 5;
 }
 .printer-camera-fsui__close {
   pointer-events: auto;
   position: absolute;
   top: max(0.75rem, env(safe-area-inset-top));
   right: max(0.75rem, env(safe-area-inset-right));
-  z-index: 2;
+  z-index: 6;
 }
 .printer-camera-fsui__stats {
   pointer-events: none;

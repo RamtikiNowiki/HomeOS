@@ -299,7 +299,9 @@ function initPrinterPanel() {
     }
     document.body.appendChild(cameraStage);
     cameraStage.classList.add("is-fullscreen");
-    cameraStage.querySelector(".printer-camera-fsui")?.setAttribute("aria-hidden", "false");
+    const fsui = cameraStage.querySelector(".printer-camera-fsui");
+    fsui?.removeAttribute("hidden");
+    fsui?.setAttribute("aria-hidden", "false");
     document.body.classList.add("printer-camera-fs-open");
     if (lastStatus) {
       updateFullscreenHud(lastStatus);
@@ -316,7 +318,9 @@ function initPrinterPanel() {
 
     fsOpen = false;
     cameraStage.classList.remove("is-fullscreen");
-    cameraStage.querySelector(".printer-camera-fsui")?.setAttribute("aria-hidden", "true");
+    const fsui = cameraStage.querySelector(".printer-camera-fsui");
+    fsui?.setAttribute("hidden", "");
+    fsui?.setAttribute("aria-hidden", "true");
     document.body.classList.remove("printer-camera-fs-open");
     if (cameraStageAnchor?.parentNode) {
       cameraStageAnchor.parentNode.insertBefore(cameraStage, cameraStageAnchor.nextSibling);
