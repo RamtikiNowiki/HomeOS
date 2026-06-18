@@ -1,7 +1,8 @@
-const CACHE = "homeos-v3";
+const CACHE = "homeos-v11";
 const ASSETS = [
   "/",
   "/static/css/app.css",
+  "/static/js/theme.js",
   "/static/js/app.js",
   "/static/js/motion.js",
   "/static/js/fitness.js",
@@ -34,17 +35,15 @@ self.addEventListener("fetch", (e) => {
 
   if (url.pathname.startsWith("/static/")) {
     e.respondWith(
-      caches.match(e.request).then(
-        (cached) =>
-          cached ||
-          fetch(e.request).then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(e.request, copy));
-            }
-            return res;
-          })
-      )
+      fetch(e.request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(e.request, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }

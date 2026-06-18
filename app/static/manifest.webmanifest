@@ -10,6 +10,7 @@
   "background_color": "#f4f6fb",
   "theme_color": "#f4f6fb",
   "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "categories": ["fitness", "health", "productivity"],
   "icons": [
     {

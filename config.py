@@ -43,6 +43,9 @@ class BaseConfig:
     CREALITY_K2_CAMERA_SNAPSHOT_URL = os.environ.get("CREALITY_K2_CAMERA_SNAPSHOT_URL", "")
     CREALITY_K2_FLUIDD_URL = os.environ.get("CREALITY_K2_FLUIDD_URL", "")
 
+    # PWA — canonical HTTPS URL (Tailscale Serve) for install prompts on phones
+    PWA_CANONICAL_URL = os.environ.get("PWA_CANONICAL_URL", "").rstrip("/")
+
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True

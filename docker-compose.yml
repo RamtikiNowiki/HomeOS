@@ -25,6 +25,15 @@ services:
       CREALITY_K2_API_KEY: ${CREALITY_K2_API_KEY:-}
       CREALITY_K2_CAMERA_SNAPSHOT_URL: ${CREALITY_K2_CAMERA_SNAPSHOT_URL:-}
       CREALITY_K2_FLUIDD_URL: ${CREALITY_K2_FLUIDD_URL:-}
+      PWA_CANONICAL_URL: ${PWA_CANONICAL_URL:-}
+      DOCKER_GID: ${DOCKER_GID:-}
+    group_add:
+      - "${DOCKER_GID:-999}"
+    volumes:
+      - /sys/class/thermal/thermal_zone0/temp:/host/cpu_temp:ro
+      - /proc/meminfo:/host/proc/meminfo:ro
+      - /:/host/rootfs:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       db:
         condition: service_healthy

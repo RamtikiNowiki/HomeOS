@@ -1,314 +1,381 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 
+{% set is_pink = current_user.accent == 'pink' %}
+{% set accent_text = 'text-neon' if is_pink else 'text-pulse' %}
+{% set accent_hover = 'hover:text-neon' if is_pink else 'hover:text-pulse' %}
+{% set accent_border = 'border-neon/25' if is_pink else 'border-pulse/25' %}
+{% set accent_border_hover = 'hover:border-neon/25' if is_pink else 'hover:border-pulse/25' %}
+{% set accent_link_hover = 'group-hover/link:text-neon' if is_pink else 'group-hover/link:text-pulse' %}
+{% set accent_grad_from = 'from-neon/10' if is_pink else 'from-pulse/10' %}
+{% set accent_grad_to = 'to-pulse/10' if is_pink else 'to-neon/10' %}
+{% set accent_glow = 'shadow-glow-cyan' if is_pink else 'shadow-glow-indigo' %}
+
 {% block content %}
 
-<!-- ── Greeting ─────────────────────────────────────────── -->
-<div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-  <div>
-    <p class="text-[11px] font-display font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Command Center</p>
-    <h1 class="text-2xl lg:text-3xl font-display font-bold leading-tight">
-      Hey, <span class="{{ 'text-neon' if current_user.accent != 'indigo' else 'text-pulse' }}">{{ current_user.display_name }}</span>
-    </h1>
-  </div>
-  {% if streak %}
-  <div class="flex gap-3 shrink-0">
-    <div class="px-3 py-2 rounded-xl bg-panel border border-edge text-center min-w-[4.5rem]">
-      <p class="text-lg font-display font-bold text-neon leading-none">{{ streak.weekly_sessions }}</p>
-      <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">this week</p>
+<!-- ── Header ───────────────────────────────────────────── -->
+<div class="dashboard-header mb-6">
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div>
+      <p class="text-[11px] font-display font-semibold uppercase tracking-[0.2em] text-slate-500 mb-1">Home OS</p>
+      <h1 class="text-2xl lg:text-3xl font-display font-bold leading-tight">
+        Hey, <span class="{{ accent_text }}">{{ current_user.display_name }}</span>
+      </h1>
     </div>
-    <div class="px-3 py-2 rounded-xl bg-panel border border-edge text-center min-w-[4.5rem]">
-      <p class="text-lg font-display font-bold text-pulse leading-none">
-        {% if streak.day_streak >= 3 %}<span class="streak-flame" aria-hidden="true">🔥</span>{% endif %}{{ streak.day_streak }}
-      </p>
-      <p class="text-[9px] uppercase tracking-widest text-slate-500 mt-0.5">day streak</p>
+    <div class="flex flex-wrap gap-2">
+      <span class="dashboard-chip">
+        <span class="w-1.5 h-1.5 rounded-full {{ 'bg-amber-400' if lights_on else 'bg-slate-600' }}"></span>
+        {{ lights_on }}/{{ lights|length }} lights
+      </span>
+      <span class="dashboard-chip">
+        {% if printer.state == 'printing' %}
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 dot-pulse"></span>
+          Printing {{ printer.progress }}%
+        {% elif printer.state == 'paused' %}
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          Paused
+        {% else %}
+          <span class="w-1.5 h-1.5 rounded-full {{ 'bg-emerald-400' if printer.online != false else 'bg-slate-600' }}"></span>
+          {{ 'K2 online' if printer.online != false else 'Printer offline' }}
+        {% endif %}
+      </span>
+      {% if streak %}
+      <span class="dashboard-chip">
+        {% if streak.day_streak >= 3 %}<span class="streak-flame" aria-hidden="true">🔥</span>{% endif %}
+        {{ streak.day_streak }}d · {{ streak.weekly_sessions }}/wk
+      </span>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
 </div>
 
-{% if today_program and today_program.label != 'Rest' and not active_session %}
-<a href="{% if today_program.routine_id %}{{ url_for('fitness.routine_detail', routine_id=today_program.routine_id) }}{% elif today_program.split_key %}{{ url_for('fitness.plan', split=today_program.split_key) }}{% else %}{{ url_for('fitness.program') }}{% endif %}"
-   class="banner-aurora block mb-6 p-4 rounded-2xl bg-gradient-to-r from-pulse/8 to-neon/8 hover:from-pulse/15 hover:to-neon/15 transition-all stagger-in">
-  <p class="text-[10px] font-display uppercase tracking-widest text-neon mb-1">Today's program</p>
-  <p class="font-display font-bold text-lg text-slate-100">{{ today_program.label }}</p>
-  <p class="text-xs text-slate-500 mt-0.5">Tap to view plan & start →</p>
+<!-- ── Live alerts ──────────────────────────────────────── -->
+{% if printer.state in ('printing', 'paused') %}
+<a href="{{ url_for('creality_k2.panel') }}"
+   class="dashboard-alert dashboard-alert--printer mb-4 block rounded-2xl p-4 border transition-all active:scale-[0.99]
+          {% if printer.state == 'printing' %}border-emerald-500/35 bg-emerald-500/8{% else %}border-amber-500/35 bg-amber-500/8{% endif %}">
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="dashboard-alert__dot {% if printer.state == 'printing' %}dashboard-alert__dot--live{% endif %}"></span>
+      <div class="min-w-0">
+        <p class="text-[10px] font-display uppercase tracking-widest {{ 'text-emerald-400' if printer.state == 'printing' else 'text-amber-400' }}">
+          {{ 'Live print' if printer.state == 'printing' else 'Print paused' }}
+        </p>
+        <p class="font-display font-bold text-slate-100 truncate">{{ printer.print_name or 'Active job' }}</p>
+      </div>
+    </div>
+    <div class="text-right shrink-0">
+      <p class="text-xl font-display font-bold {{ 'text-emerald-400' if printer.state == 'printing' else 'text-amber-400' }}">{{ printer.progress }}%</p>
+      <p class="text-[10px] text-slate-500">{{ printer.time_remaining }} left</p>
+    </div>
+  </div>
+  <div class="mt-3 h-1 rounded-full bg-void border border-edge overflow-hidden">
+    <div class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-all duration-700" style="width: {{ printer.progress }}%"></div>
+  </div>
 </a>
 {% endif %}
 
-<!-- ── Active workout OR Start CTA ───────────────────────── -->
 {% if active_session %}
-
-<!-- LIVE WORKOUT BANNER -->
-<div class="relative mb-8 rounded-2xl overflow-hidden live-session-banner banner-aurora">
-  <!-- Layered gradient background -->
-  <div class="absolute inset-0 bg-gradient-to-br from-pulse/20 via-panel/80 to-neon/15"></div>
-  <div class="absolute inset-0 bg-panel/50 backdrop-blur-sm"></div>
-  <!-- Animated border glow -->
-  <div class="absolute inset-0 rounded-2xl ring-1 ring-neon/30 shadow-glow-cyan"></div>
-  <!-- Top shimmer line -->
-  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neon/60 to-transparent"></div>
-
-  <div class="relative p-5">
-    <!-- Header row -->
-    <div class="flex items-start justify-between gap-3 mb-5">
-      <div class="flex items-center gap-2.5">
-        <span class="w-2.5 h-2.5 rounded-full bg-neon dot-pulse shrink-0"></span>
-        <div>
-          <p class="text-[10px] font-display font-bold uppercase tracking-[0.15em] text-neon">Live · Workout in Progress</p>
-          <p class="text-xl font-display font-bold text-slate-100 mt-0.5">{{ active_session.name }}</p>
+<div class="dashboard-alert dashboard-alert--workout mb-6 rounded-2xl overflow-hidden border {{ accent_border }} {{ accent_glow }}">
+  <div class="absolute inset-0 bg-gradient-to-br {{ accent_grad_from }} via-panel/90 {{ accent_grad_to }}"></div>
+  <div class="relative p-4">
+    <div class="flex items-start justify-between gap-3 mb-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="w-2 h-2 rounded-full {{ 'bg-neon' if is_pink else 'bg-pulse' }} dot-pulse shrink-0"></span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-display uppercase tracking-widest {{ accent_text }}">Live workout</p>
+          <p class="font-display font-bold text-slate-100 truncate">{{ active_session.name }}</p>
         </div>
       </div>
       <form action="{{ url_for('fitness.discard_session', session_id=active_session.id) }}" method="post"
             data-confirm="Discard this workout?{% if active_session.total_sets %} {{ active_session.total_sets }} sets will be lost.{% endif %}">
-        <button type="submit"
-                class="px-3 py-1.5 rounded-lg text-[10px] font-display uppercase tracking-widest text-rose-400
-                       border border-rose-500/30 hover:bg-rose-500/12 active:scale-95 transition-all duration-200">
-          Discard
-        </button>
+        <button type="submit" class="text-[10px] font-display uppercase tracking-widest text-rose-400 px-2 py-1 rounded-lg border border-rose-500/30 hover:bg-rose-500/10">Discard</button>
       </form>
     </div>
-
-    <!-- Stats row -->
-    <div class="flex items-center gap-5 mb-5">
-      <div class="text-center">
-        <p class="text-2xl font-display font-bold text-slate-100 leading-none">{{ active_session.elapsed_minutes }}</p>
-        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">min</p>
-      </div>
-      <div class="w-px h-8 bg-edge/60 shrink-0"></div>
-      <div class="text-center">
-        <p class="text-2xl font-display font-bold text-slate-100 leading-none">{{ active_session.total_sets }}</p>
-        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">sets</p>
-      </div>
-      <div class="w-px h-8 bg-edge/60 shrink-0"></div>
-      <div class="text-center">
-        <p class="text-2xl font-display font-bold text-slate-100 leading-none">{{ active_session.total_volume|lbs }}</p>
-        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">lb vol</p>
-      </div>
+    <div class="flex items-center gap-4 mb-3 text-sm">
+      <span><strong class="font-display text-slate-100">{{ active_session.elapsed_minutes }}</strong> min</span>
+      <span class="text-edge">·</span>
+      <span><strong class="font-display text-slate-100">{{ active_session.total_sets }}</strong> sets</span>
+      <span class="text-edge">·</span>
+      <span><strong class="font-display text-slate-100">{{ active_session.total_volume|lbs }}</strong> lb</span>
     </div>
-
-    <!-- CTA -->
     {% if next_exercise %}
     <a href="{{ url_for('fitness.log_exercise', session_id=active_session.id, exercise_id=next_exercise.id) }}"
-       class="flex items-center justify-between w-full px-4 py-3.5 rounded-xl
-              bg-neon/12 border border-neon/35 text-neon
-              hover:bg-neon/18 hover:border-neon/55 active:scale-[0.98]
-              transition-all duration-200 shadow-glow-cyan">
-      <div>
-        <p class="text-[10px] font-display uppercase tracking-widest opacity-60">Up next</p>
-        <p class="font-display font-bold text-base mt-0.5">{{ next_exercise.name }}</p>
-      </div>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12"/>
-        <polyline points="12 5 19 12 12 19"/>
-      </svg>
+       class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-panel/80 border border-edge hover:border-neon/30 transition-colors">
+      <span class="text-sm">Next: <span class="font-display font-bold {{ accent_text }}">{{ next_exercise.name }}</span></span>
+      <span class="{{ accent_text }}">→</span>
     </a>
     {% else %}
     <a href="{{ url_for('fitness.session_detail', session_id=active_session.id) }}"
-       class="flex items-center justify-between w-full px-4 py-3.5 rounded-xl
-              bg-neon/12 border border-neon/35 text-neon
-              hover:bg-neon/18 active:scale-[0.98] transition-all duration-200">
-      <span class="font-display font-bold">Resume Workout</span>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12"/>
-        <polyline points="12 5 19 12 12 19"/>
-      </svg>
-    </a>
+       class="block text-center px-3 py-2.5 rounded-xl bg-panel/80 border border-edge text-sm font-display font-bold {{ accent_text }}">Resume workout →</a>
     {% endif %}
   </div>
 </div>
-
-{% else %}
-
-<!-- START WORKOUT CTA -->
-<a href="{{ url_for('fitness.index') }}"
-   class="cta-glow-border relative block mb-8 p-5 rounded-2xl overflow-hidden
-          border border-neon/20 hover:border-neon/40
-          bg-gradient-to-br from-pulse/6 via-transparent to-neon/6
-          hover:from-pulse/10 hover:to-neon/10
-          active:scale-[0.99] transition-all duration-300 group">
-  <!-- Diagonal shimmer stripe -->
-  <div class="absolute inset-0 bg-gradient-to-br from-transparent via-neon/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-  <div class="relative flex items-center justify-between gap-4">
-    <div>
-      <p class="text-[10px] font-display font-bold uppercase tracking-[0.18em] text-neon mb-1.5">Ready to train?</p>
-      <p class="text-xl font-display font-bold text-slate-100">Start a Workout</p>
-      <p class="text-xs text-slate-500 mt-1">Routines, templates, or freestyle</p>
-    </div>
-    <div class="shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-pulse to-neon grid place-items-center
-                shadow-glow-indigo group-hover:scale-110 group-hover:shadow-glow-cyan transition-all duration-300 overflow-hidden">
-      <img src="{{ url_for('static', filename='img/px/' + px_theme + '/squat.png') }}" alt="" width="40" height="40" class="pixel-icon">
-    </div>
-  </div>
-</a>
-
 {% endif %}
 
-<!-- ── Stat widget grid ───────────────────────────────────── -->
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger-in">
+<!-- ── Home hub (printer + smart home) ──────────────────── -->
+<section class="mb-8 stagger-in">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-[11px] font-display font-semibold uppercase tracking-[0.18em] text-slate-500">Your home</h2>
+    <a href="{{ url_for('home_assistant.panel') }}" class="text-[10px] font-display uppercase tracking-widest text-slate-500 {{ accent_hover }} transition-colors">All devices →</a>
+  </div>
 
-  <!-- ─ Body Weight ───────────────────────────────────────── -->
-  <a href="{{ url_for('fitness.weight') }}"
-     class="card-interactive card-top-glow relative group p-5 rounded-2xl bg-panel border border-edge overflow-hidden shadow-card
-            hover:border-neon/28 active:scale-[0.99]">
-    <div class="absolute inset-0 bg-gradient-to-br from-transparent to-neon/3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
-    <div class="relative">
-      <div class="flex items-start justify-between mb-3">
-        <p class="text-[11px] font-display font-semibold uppercase tracking-widest text-slate-500">Body Weight</p>
-        <div class="flex items-center gap-2">
-          <span class="text-[9px] px-2 py-0.5 rounded-full bg-pulse/10 text-pulse border border-pulse/25 font-display uppercase tracking-wide">VeSync</span>
-          <!-- Scale icon -->
-          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center text-slate-500 group-hover:text-neon group-hover:border-neon/30 transition-colors duration-200">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20V4M5 9l7-7 7 7"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    <!-- K2 Plus -->
+    <a href="{{ url_for('creality_k2.panel') }}"
+       data-dashboard-printer
+       data-state="{{ printer.state }}"
+       data-status-url="{{ url_for('creality_k2.status') }}"
+       class="dashboard-hub-card dashboard-hub-card--printer group relative overflow-hidden rounded-2xl bg-panel border border-edge shadow-card
+              hover:border-emerald-400/30 active:scale-[0.99] transition-all duration-200
+              {% if printer.state == 'printing' %}dashboard-hub--printing{% elif printer.state == 'paused' %}dashboard-hub--paused{% endif %}">
+      <div class="dashboard-hub-card__glow dashboard-hub-card__glow--emerald"></div>
+      <div class="relative p-5">
+        <div class="flex items-start justify-between gap-2 mb-4">
+          <div>
+            <p class="text-[11px] font-display uppercase tracking-widest text-slate-500 mb-0.5">3D Printer</p>
+            <p class="text-lg font-display font-bold text-slate-100">K2 Plus</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span data-dp-state class="text-[10px] font-display uppercase tracking-wide px-2 py-0.5 rounded-full border
+                  {% if printer.state == 'printing' %}text-emerald-400 border-emerald-500/30 bg-emerald-500/10
+                  {% elif printer.state == 'paused' %}text-amber-400 border-amber-500/30 bg-amber-500/10
+                  {% else %}text-slate-500 border-edge bg-raised{% endif %}">
+              {% if printer.state == 'printing' %}Printing{% elif printer.state == 'paused' %}Paused{% else %}{{ printer.state|capitalize }}{% endif %}
+            </span>
+            <div class="w-9 h-9 rounded-xl bg-raised border border-edge grid place-items-center text-emerald-400/80 group-hover:border-emerald-400/40 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 9V3h12v6M6 14h12v8H6z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <p data-dp-name class="text-sm font-medium text-slate-300 truncate mb-3" title="{{ printer.print_name }}">{{ printer.print_name or 'No active job' }}</p>
+
+        <div class="h-2 rounded-full bg-void border border-edge overflow-hidden mb-2">
+          <div data-dp-bar class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-all duration-700" style="width: {{ printer.progress }}%"></div>
+        </div>
+        <div class="flex justify-between items-center text-xs mb-4">
+          <span data-dp-pct class="font-display font-bold text-emerald-400">{{ printer.progress }}%</span>
+          <span data-dp-eta class="text-slate-500">{{ printer.time_remaining }} remaining</span>
+        </div>
+
+        <div class="flex gap-3 pt-3 border-t border-edge/60">
+          <div class="flex-1">
+            <p class="text-[9px] uppercase tracking-widest text-slate-500">Nozzle</p>
+            <p class="font-display font-bold text-slate-200"><span data-dp-nozzle>{{ printer.nozzle_temp }}</span>°</p>
+          </div>
+          <div class="flex-1">
+            <p class="text-[9px] uppercase tracking-widest text-slate-500">Bed</p>
+            <p class="font-display font-bold text-slate-200"><span data-dp-bed>{{ printer.bed_temp }}</span>°</p>
+          </div>
+          <div class="flex-1 text-right">
+            <p class="text-[9px] uppercase tracking-widest text-slate-500">Open</p>
+            <p class="font-display font-bold text-emerald-400/90 group-hover:text-emerald-400">Panel →</p>
           </div>
         </div>
       </div>
+    </a>
 
-      {% if weight.latest %}
-        <div class="flex items-end gap-2.5 mb-1">
-          <p class="text-3xl font-display font-bold text-slate-100 leading-none">{{ weight.latest.weight|lbs }}</p>
-          <p class="text-sm text-slate-500 font-body mb-0.5">lb</p>
-          {% if weight.delta is not none %}
-            <span class="mb-0.5 ml-1 inline-flex items-center gap-1 text-xs font-semibold {{ 'text-emerald-400' if weight.delta <= 0 else 'text-amber-400' }}">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                {% if weight.delta <= 0 %}
-                  <polyline points="19 12 12 19 5 12"/><line x1="12" y1="5" x2="12" y2="19"/>
-                {% else %}
-                  <polyline points="5 12 12 5 19 12"/><line x1="12" y1="19" x2="12" y2="5"/>
-                {% endif %}
-              </svg>
-              {{ weight.delta|abs|num }}
+    <!-- Smart Home -->
+    <a href="{{ url_for('home_assistant.panel') }}"
+       class="dashboard-hub-card dashboard-hub-card--home group relative overflow-hidden rounded-2xl bg-panel border border-edge shadow-card
+              hover:border-amber-400/30 active:scale-[0.99] transition-all duration-200">
+      <div class="dashboard-hub-card__glow dashboard-hub-card__glow--amber"></div>
+      <div class="relative p-5 h-full flex flex-col">
+        <div class="flex items-start justify-between gap-2 mb-4">
+          <div>
+            <p class="text-[11px] font-display uppercase tracking-widest text-slate-500 mb-0.5">Smart Home</p>
+            <p class="text-lg font-display font-bold text-slate-100">Home Assistant</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full {{ 'bg-amber-400 shadow-[0_0_8px_2px_rgba(251,191,36,0.35)]' if lights_on else 'bg-slate-600' }}"></span>
+            <div class="w-9 h-9 rounded-xl bg-raised border border-edge grid place-items-center text-amber-400/80 group-hover:border-amber-400/40 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-end gap-2 mb-1">
+          <p class="text-4xl font-display font-bold {{ 'text-amber-300' if lights_on else 'text-slate-200' }} leading-none">{{ lights_on }}</p>
+          <p class="text-sm text-slate-500 mb-1">of {{ lights|length }} lights on</p>
+        </div>
+
+        <div class="mt-auto pt-4 border-t border-edge/60 space-y-3">
+          <div class="flex items-center gap-2 text-sm text-slate-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+            <span>{{ sensor.name }}:</span>
+            <span class="font-display font-bold text-slate-200">{{ sensor.temperature }}°C</span>
+          </div>
+          {% if lights %}
+          <div class="flex flex-wrap gap-1.5">
+            {% for light in lights[:4] %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full border font-display uppercase tracking-wide
+                         {% if light.state == 'on' %}bg-amber-500/10 text-amber-300 border-amber-500/25{% else %}bg-raised text-slate-500 border-edge{% endif %}">
+              {{ light.name|truncate(12, True) }}
             </span>
+            {% endfor %}
+            {% if lights|length > 4 %}
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-raised text-slate-500 border border-edge">+{{ lights|length - 4 }}</span>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Pi health -->
+  <div data-dashboard-health
+       data-health-url="{{ url_for('main.system_health') }}"
+       data-available="{{ '1' if host_health.available else '0' }}"
+       class="dashboard-health-card mt-4 rounded-2xl bg-panel border border-edge shadow-card p-4">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <p class="text-[11px] font-display uppercase tracking-widest text-slate-500 mb-0.5">Hub hardware</p>
+        <p class="text-lg font-display font-bold text-slate-100">Raspberry Pi</p>
+      </div>
+      <div class="w-9 h-9 rounded-xl bg-raised border border-edge grid place-items-center {{ accent_text }}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      <div>
+        <p class="text-[9px] uppercase tracking-widest text-slate-500 mb-1">CPU temp</p>
+        <p data-dh-temp class="font-display font-bold text-lg {{ 'text-rose-400' if host_health.cpu_temp_warn else 'text-slate-200' }}">
+          {{ host_health.cpu_temp_c ~ '°C' if host_health.cpu_temp_c is not none else '—' }}
+        </p>
+      </div>
+      <div>
+        <p class="text-[9px] uppercase tracking-widest text-slate-500 mb-1">Memory</p>
+        <p data-dh-mem class="font-display font-bold text-lg text-slate-200">
+          {{ host_health.memory.used_pct ~ '%' if host_health.memory.used_pct is not none else '—' }}
+        </p>
+        <div class="mt-1 h-1 rounded-full bg-void border border-edge overflow-hidden">
+          <div data-dh-mem-bar class="h-full rounded-full bg-gradient-to-r from-pulse to-neon" style="width: {{ host_health.memory.used_pct or 0 }}%"></div>
+        </div>
+      </div>
+      <div>
+        <p class="text-[9px] uppercase tracking-widest text-slate-500 mb-1">Disk</p>
+        <p data-dh-disk class="font-display font-bold text-lg text-slate-200">
+          {{ host_health.disk.used_pct ~ '%' if host_health.disk.used_pct is not none else '—' }}
+        </p>
+        <div class="mt-1 h-1 rounded-full bg-void border border-edge overflow-hidden">
+          <div data-dh-disk-bar class="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400" style="width: {{ host_health.disk.used_pct or 0 }}%"></div>
+        </div>
+      </div>
+      <div>
+        <p class="text-[9px] uppercase tracking-widest text-slate-500 mb-1">Docker</p>
+        <p data-dh-docker class="font-display font-bold text-lg text-slate-200">
+          {% if host_health.docker.total %}{{ host_health.docker.running }}/{{ host_health.docker.total }} up{% else %}—{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div data-dh-services class="flex flex-wrap gap-1.5">
+      {% for svc in host_health.docker.services %}
+      <span class="dashboard-health-svc {{ 'is-up' if svc.state == 'running' else 'is-down' }}">{{ svc.name.replace('home-os-hub-', '') }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- ── Fitness (secondary) ──────────────────────────────── -->
+<section class="stagger-in">
+  <div class="flex items-center justify-between mb-3 gap-3">
+    <h2 class="text-[11px] font-display font-semibold uppercase tracking-[0.18em] text-slate-500">Fitness</h2>
+    <div class="flex items-center gap-2">
+      {% if not active_session %}
+      <a href="{{ url_for('fitness.index') }}"
+         class="dashboard-fitness-cta inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-display font-bold uppercase tracking-widest
+                border {{ accent_border }} {{ accent_text }} hover:bg-panel transition-colors">
+        <img src="{{ url_for('static', filename='img/px/' + px_theme + '/dumbbell.png') }}" alt="" width="14" height="14" class="pixel-icon">
+        Start workout
+      </a>
+      {% endif %}
+      <a href="{{ url_for('fitness.charts') }}" class="text-[10px] font-display uppercase tracking-widest text-slate-500 {{ accent_hover }} transition-colors">Stats →</a>
+    </div>
+  </div>
+
+  {% if today_program and today_program.label != 'Rest' and not active_session %}
+  <a href="{% if today_program.routine_id %}{{ url_for('fitness.routine_detail', routine_id=today_program.routine_id) }}{% elif today_program.split_key %}{{ url_for('fitness.plan', split=today_program.split_key) }}{% else %}{{ url_for('fitness.program') }}{% endif %}"
+     class="block mb-3 px-4 py-3 rounded-xl border border-edge bg-panel/60 hover:border-neon/20 transition-colors">
+    <p class="text-[10px] font-display uppercase tracking-widest {{ accent_text }}">Today · {{ today_program.label }}</p>
+    <p class="text-xs text-slate-500 mt-0.5">View program →</p>
+  </a>
+  {% endif %}
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+    <!-- Weight -->
+    <a href="{{ url_for('fitness.weight') }}"
+       class="dashboard-fitness-card group p-4 rounded-xl bg-panel border border-edge {{ accent_border_hover }} active:scale-[0.99] transition-all">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-2">Body weight</p>
+      {% if weight.latest %}
+        <p class="text-2xl font-display font-bold text-slate-100 leading-none">{{ weight.latest.weight|lbs }}<span class="text-sm text-slate-500 font-body ml-1">lb</span></p>
+        {% if weight.delta is not none %}
+          <p class="text-xs mt-1 {{ 'text-emerald-400' if weight.delta <= 0 else 'text-amber-400' }}">{{ '+' if weight.delta > 0 else '' }}{{ weight.delta|num }} vs last</p>
+        {% endif %}
         {% if weight.points %}
-          <svg class="w-full h-10 my-2" viewBox="0 0 100 32" preserveAspectRatio="none">
-            <polyline points="{{ weight.points }}" fill="none" stroke="url(#spark-w)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          <svg class="w-full h-8 mt-2 opacity-70" viewBox="0 0 100 32" preserveAspectRatio="none">
+            <polyline points="{{ weight.points }}" fill="none" stroke="url(#spark-dash-w)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
             <defs>
-              <linearGradient id="spark-w" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#818cf8"/>
-                <stop offset="100%" stop-color="#22d3ee"/>
+              <linearGradient id="spark-dash-w" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="{{ '#f472b6' if is_pink else '#818cf8' }}"/>
+                <stop offset="100%" stop-color="{{ '#22d3ee' if is_pink else '#22d3ee' }}"/>
               </linearGradient>
             </defs>
           </svg>
         {% endif %}
-        <p class="text-[11px] text-slate-500">
-          {{ weight.latest.log_date.strftime('%b %d') }}{% if weight.latest.body_fat %} · {{ weight.latest.body_fat|num }}% BF{% endif %}
-        </p>
       {% else %}
-        <p class="text-3xl font-display font-bold text-slate-700 leading-none mt-1">—</p>
-        <p class="text-xs text-slate-500 mt-2">Tap to log your first weigh-in</p>
+        <p class="text-xl font-display text-slate-600">—</p>
+        <p class="text-[10px] text-slate-500 mt-1">Log weigh-in →</p>
+      {% endif %}
+    </a>
+
+    <!-- Last workout -->
+    <div class="dashboard-fitness-card p-4 rounded-xl bg-panel border border-edge">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[10px] font-display uppercase tracking-widest text-slate-500">Last session</p>
+        <a href="{{ url_for('fitness.history') }}" class="text-[9px] font-display uppercase tracking-widest text-slate-500 {{ accent_hover }}">History</a>
+      </div>
+      {% if last_session %}
+        <a href="{{ url_for('fitness.session_detail', session_id=last_session.id) }}" class="block group/link">
+          <p class="font-display font-bold text-slate-100 truncate {{ accent_link_hover }} transition-colors">{{ last_session.name }}</p>
+          <p class="text-[10px] text-slate-500 mt-0.5">{{ last_session.started_at.strftime('%a %b %d') }}</p>
+          <div class="flex gap-3 mt-2 text-sm">
+            <span><strong class="{{ accent_text }}">{{ last_session.total_sets }}</strong> sets</span>
+            <span><strong class="{{ accent_text }}">{{ last_session.total_volume|lbs }}</strong> lb</span>
+          </div>
+        </a>
+      {% else %}
+        <p class="text-slate-600 font-display">No sessions yet</p>
+        <a href="{{ url_for('fitness.index') }}" class="text-[10px] font-display uppercase tracking-widest {{ accent_text }} mt-1 inline-block">Get started →</a>
       {% endif %}
     </div>
-  </a>
 
-  <!-- ─ Last Workout ──────────────────────────────────────── -->
-  <div class="card-interactive card-top-glow relative group p-5 rounded-2xl bg-panel border border-edge overflow-hidden shadow-card">
-    <div class="absolute inset-0 bg-gradient-to-br from-transparent to-pulse/3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
-    <div class="relative">
-      <div class="flex items-start justify-between mb-3">
-        <p class="text-[11px] font-display font-semibold uppercase tracking-widest text-slate-500">Last Workout</p>
-        <div class="flex items-center gap-2">
-          <a href="{{ url_for('fitness.history') }}" class="text-[10px] font-display uppercase tracking-widest text-slate-500 hover:text-neon transition-colors">All →</a>
-          <!-- Dumbbell icon -->
-          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center overflow-hidden group-hover:border-pulse/30 transition-colors duration-200">
-            <img src="{{ url_for('static', filename='img/px/' + px_theme + '/dumbbell.png') }}" alt="" width="20" height="20" class="pixel-icon">
+    <!-- Streak -->
+    <div class="dashboard-fitness-card p-4 rounded-xl bg-panel border border-edge">
+      <p class="text-[10px] font-display uppercase tracking-widest text-slate-500 mb-2">Consistency</p>
+      {% if streak %}
+        <div class="flex items-end gap-4">
+          <div>
+            <p class="text-2xl font-display font-bold {{ accent_text }} leading-none">
+              {% if streak.day_streak >= 3 %}<span class="streak-flame">🔥</span>{% endif %}{{ streak.day_streak }}
+            </p>
+            <p class="text-[10px] text-slate-500 mt-0.5">day streak</p>
+          </div>
+          <div>
+            <p class="text-2xl font-display font-bold text-slate-200 leading-none">{{ streak.weekly_sessions }}</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">this week</p>
           </div>
         </div>
-      </div>
-
-      {% if last_session %}
-        <a href="{{ url_for('fitness.session_detail', session_id=last_session.id) }}" class="block active:scale-[0.98] transition-transform">
-          <p class="text-lg font-display font-bold text-slate-100 group-hover:text-neon transition-colors duration-200 mb-0.5 truncate">{{ last_session.name }}</p>
-          <p class="text-[11px] text-slate-500 mb-4">{{ last_session.started_at.strftime('%A, %b %d') }}</p>
-          <div class="flex items-end gap-5">
-            <div>
-              <p class="text-2xl font-display font-bold text-neon leading-none">{{ last_session.total_sets }}</p>
-              <p class="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5">sets</p>
-            </div>
-            <div>
-              <p class="text-2xl font-display font-bold text-neon leading-none">{{ last_session.total_volume|lbs }}</p>
-              <p class="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5">lb vol</p>
-            </div>
-            <div>
-              <p class="text-2xl font-display font-bold text-neon leading-none">{{ last_session.exercises_performed|length }}</p>
-              <p class="text-[10px] uppercase tracking-widest text-slate-500 mt-0.5">exercises</p>
-            </div>
-          </div>
-        </a>
       {% else %}
-        <p class="text-2xl font-display text-slate-700 leading-none mb-2">No sessions yet</p>
-        <a href="{{ url_for('fitness.index') }}" class="inline-flex items-center gap-1 text-xs font-display uppercase tracking-widest text-neon hover:underline">
-          Start your first workout
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
+        <p class="text-slate-600 font-display">—</p>
       {% endif %}
     </div>
   </div>
+</section>
 
-  <!-- ─ Smart Home ────────────────────────────────────────── -->
-  <a href="{{ url_for('home_assistant.panel') }}"
-     class="card-interactive card-top-glow relative group p-5 rounded-2xl bg-panel border border-edge overflow-hidden shadow-card
-            hover:border-amber-400/28 active:scale-[0.99]">
-    <div class="absolute inset-0 bg-gradient-to-br from-transparent to-amber-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
-    <div class="relative">
-      <div class="flex items-start justify-between mb-3">
-        <p class="text-[11px] font-display font-semibold uppercase tracking-widest text-slate-500">Smart Home</p>
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full {{ 'bg-amber-400 shadow-[0_0_6px_2px_rgba(251,191,36,0.4)]' if lights_on else 'bg-slate-600' }} transition-all"></span>
-          <!-- Home icon -->
-          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center text-slate-500 group-hover:text-amber-400 group-hover:border-amber-400/30 transition-colors duration-200">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-end gap-2 mb-3">
-        <p class="text-3xl font-display font-bold {{ 'text-amber-300' if lights_on else 'text-slate-100' }} leading-none">{{ lights_on }}</p>
-        <p class="text-sm text-slate-500 font-body mb-0.5">/ {{ lights|length }} lights on</p>
-      </div>
-      <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
-        {{ sensor.name }}: <span class="text-slate-300 font-medium">{{ sensor.temperature }}°C</span>
-      </p>
-    </div>
-  </a>
-
-  <!-- ─ 3D Printer ────────────────────────────────────────── -->
-  <a href="{{ url_for('creality_k2.panel') }}"
-     class="card-interactive card-top-glow relative group p-5 rounded-2xl bg-panel border border-edge overflow-hidden shadow-card
-            hover:border-emerald-400/28 active:scale-[0.99]">
-    <div class="absolute inset-0 bg-gradient-to-br from-transparent to-emerald-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
-    <div class="relative">
-      <div class="flex items-start justify-between mb-3">
-        <p class="text-[11px] font-display font-semibold uppercase tracking-widest text-slate-500">K2 Plus</p>
-        <div class="flex items-center gap-2">
-          {% if printer.state == 'printing' %}
-            <span class="flex items-center gap-1.5 text-[10px] font-display uppercase tracking-wide text-emerald-400">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 dot-pulse"></span> Printing
-            </span>
-          {% else %}
-            <span class="text-[10px] font-display uppercase tracking-wide text-slate-500">{{ printer.state }}</span>
-          {% endif %}
-          <!-- Printer icon -->
-          <div class="w-7 h-7 rounded-lg bg-raised border border-edge grid place-items-center text-slate-500 group-hover:text-emerald-400 group-hover:border-emerald-400/30 transition-colors duration-200">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 9V3h12v6M6 14h12v8H6z"/></svg>
-          </div>
-        </div>
-      </div>
-      <p class="text-sm font-medium text-slate-200 truncate mb-3" title="{{ printer.print_name }}">{{ printer.print_name }}</p>
-      <div class="h-1.5 rounded-full bg-void border border-edge overflow-hidden mb-2.5">
-        <div class="progress-glow h-full rounded-full bg-gradient-to-r from-emerald-500 to-neon transition-all duration-1000" style="width: {{ printer.progress }}%"></div>
-      </div>
-      <div class="flex justify-between text-xs">
-        <span class="font-display font-bold text-emerald-400">{{ printer.progress }}%</span>
-        <span class="text-slate-500">{{ printer.time_remaining }} remaining</span>
-      </div>
-    </div>
-  </a>
-
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/fitness.js') }}"></script>
 {% endblock %}

@@ -150,8 +150,13 @@
       avatar.className = 'w-11 h-11 rounded-full grid place-items-center border-2 overflow-hidden shrink-0 ' + style.avatarBorder;
 
       const themePref = accent === 'pink' ? 'light' : 'dark';
-      localStorage.setItem('theme', themePref);
-      document.documentElement.classList.toggle('dark', themePref === 'dark');
+      if (window.HomeOSTheme) {
+        HomeOSTheme.apply(themePref);
+      } else {
+        localStorage.setItem('theme', themePref);
+        document.documentElement.classList.toggle('dark', themePref === 'dark');
+        document.documentElement.dataset.theme = themePref;
+      }
 
       // Swap submit button gradient to match the profile
       loginSubmitBtn.className = loginSubmitBtn.className

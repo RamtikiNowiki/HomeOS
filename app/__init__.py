@@ -81,6 +81,11 @@ def create_app(config_object=None) -> Flask:
         return " ".join(parts)
 
     @app.context_processor
+    def inject_pwa():
+        from flask import current_app
+        return {"pwa_canonical_url": current_app.config.get("PWA_CANONICAL_URL", "")}
+
+    @app.context_processor
     def inject_px_theme():
         from flask_login import current_user
         accent = getattr(current_user, "accent", None) if current_user.is_authenticated else None

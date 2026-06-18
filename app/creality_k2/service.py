@@ -327,6 +327,57 @@ class CrealityK2Service:
         return None
 
     @staticmethod
+    def _go2rtc_src_from_cam(cam: dict) -> str:
+        for key in ("snapshot_url", "stream_url"):
+            url = cam.get(key) or ""
+            if "src=" in url:
+                return url.split("src=", 1)[1].split("&", 1)[0] or "k2plus"
+        return "k2plus"
+
+    @staticmethod
+    def _normalize_go2rtc_snapshot_url(url: str) -> str:
+        """Helper Script registers go2rtc on :4409 nginx; live go2rtc is often :1984."""
+        if ":4409/go2rtc/" in url:
+            return url.replace(":4409/go2rtc/", ":1984/")
+        return url
+
+    def _snapshot_candidates(self, cam: dict | None = None) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+
+        def add(url: str | None) -> None:
+            if not url:
+                return
+            url = self._normalize_go2rtc_snapshot_url(url.strip())
+            if url not in seen:
+                seen.add(url)
+                urls.append(url)
+
+        add(self._configured_snapshot_url())
+        if cam:
+            add(cam.get("snapshot_url"))
+            add(self._snapshot_from_stream(cam.get("stream_url")))
+            src = self._go2rtc_src_from_cam(cam)
+            if self.host:
+                add(f"http://{self.host}:1984/api/frame.jpeg?src={src}")
+                add(f"http://{self.host}:4409/go2rtc/api/frame.jpeg?src={src}")
+        elif self.host:
+            add(f"http://{self.host}:1984/api/frame.jpeg?src=k2plus")
+
+        return urls
+
+    def _fetch_snapshot_bytes(self, snapshot_url: str) -> tuple[bytes, str]:
+        req = urllib.request.Request(snapshot_url, headers={"User-Agent": "HomeOS/1.0"})
+        if self.api_key:
+            req.add_header("X-Api-Key", self.api_key)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+            data = resp.read()
+        if len(data) < 500:
+            raise OSError("snapshot response too small")
+        return data, content_type.split(";")[0].strip() or "image/jpeg"
+
+    @staticmethod
     def _snapshot_from_stream(stream_url: str | None) -> str | None:
         if not stream_url:
             return None
@@ -349,21 +400,23 @@ class CrealityK2Service:
 
         snapshot_url = self._configured_snapshot_url()
         name = "K2 Camera"
+        cam: dict | None = None
         try:
             data = self._get("/server/webcams/list")
             webcams = (data.get("result") or {}).get("webcams") or []
             if webcams:
                 cam = webcams[0]
                 name = cam.get("name") or name
-                snapshot_url = (
-                    cam.get("snapshot_url")
-                    or self._snapshot_from_stream(cam.get("stream_url"))
-                    or snapshot_url
-                )
+                candidates = self._snapshot_candidates(cam)
+                if candidates:
+                    snapshot_url = candidates[0]
         except HttpError:
             pass
 
-        available = bool(snapshot_url)
+        if not snapshot_url and self.host:
+            snapshot_url = f"http://{self.host}:1984/api/frame.jpeg?src=k2plus"
+
+        available = bool(cam or snapshot_url)
         return {
             "available": available,
             "name": name if available else None,
@@ -380,29 +433,22 @@ class CrealityK2Service:
         if self.is_mock:
             return None, "image/jpeg"
 
-        snapshot_url = self._configured_snapshot_url()
+        cam: dict | None = None
         try:
             data = self._get("/server/webcams/list")
             webcams = (data.get("result") or {}).get("webcams") or []
             if webcams:
                 cam = webcams[0]
-                snapshot_url = (
-                    cam.get("snapshot_url")
-                    or self._snapshot_from_stream(cam.get("stream_url"))
-                    or snapshot_url
-                )
         except HttpError:
             pass
 
-        if not snapshot_url:
-            return None, "image/jpeg"
+        errors: list[str] = []
+        for snapshot_url in self._snapshot_candidates(cam):
+            try:
+                return self._fetch_snapshot_bytes(snapshot_url)
+            except OSError as exc:
+                errors.append(f"{snapshot_url}: {exc}")
 
-        req = urllib.request.Request(snapshot_url, headers={"User-Agent": "HomeOS/1.0"})
-        if self.api_key:
-            req.add_header("X-Api-Key", self.api_key)
-        try:
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                content_type = resp.headers.get("Content-Type", "image/jpeg")
-                return resp.read(), content_type.split(";")[0].strip()
-        except OSError as exc:
-            raise HttpError(0, f"Camera snapshot failed: {exc}") from exc
+        if errors:
+            raise HttpError(0, "Camera snapshot failed — " + "; ".join(errors[-2:]))
+        return None, "image/jpeg"

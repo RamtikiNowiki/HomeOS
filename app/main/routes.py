@@ -11,6 +11,7 @@ from ..fitness.service import (
     get_program_week,
     workout_streak_stats,
 )
+from ..system.health import get_host_health
 from datetime import datetime
 from . import main_bp
 
@@ -97,7 +98,14 @@ def dashboard():
         lights_on=lights_on,
         sensor=sensor,
         printer=printer,
+        host_health=get_host_health(),
     )
+
+
+@main_bp.route("/api/system/health")
+@login_required
+def system_health():
+    return jsonify(get_host_health())
 
 
 def _merged_preferences(user) -> dict:

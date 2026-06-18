@@ -5,6 +5,7 @@
 
 /* ── Color tokens ──────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --void:          #f4f6fb;
   --panel:         #ffffff;
   --raised:        #eef1f8;
@@ -23,7 +24,9 @@
   --text-subtle:   #475569;
 }
 
-html.dark {
+html.dark,
+html[data-theme="dark"] {
+  color-scheme: dark;
   --void:          #0b0d16;
   --panel:         #131723;
   --raised:        #1a2035;
@@ -61,8 +64,21 @@ html.dark {
   --glow-indigo:   0 0 22px -2px rgba(37, 99, 235, 0.28);
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Theme toggle icons — driven by data-theme, not Tailwind dark: (PWA-safe) */
+html[data-theme="light"] .theme-icon-sun { display: none; }
+html[data-theme="light"] .theme-icon-moon { display: block; }
+html[data-theme="dark"] .theme-icon-sun,
+html.dark .theme-icon-sun { display: block; }
+html[data-theme="dark"] .theme-icon-moon,
+html.dark .theme-icon-moon { display: none; }
+
 /* Dark mode pink */
-html.dark[data-accent="pink"] {
+html.dark[data-accent="pink"],
+html[data-theme="dark"][data-accent="pink"] {
   --void:          #130c18;   /* very dark warm-purple base */
   --panel:         #1e1329;   /* dark aubergine panel */
   --raised:        #281a38;   /* elevated surface */
@@ -82,7 +98,8 @@ html.dark[data-accent="pink"] {
 }
 
 /* Pink-tinted sidebar gradient */
-html.dark[data-accent="pink"] .sidebar-aside {
+html.dark[data-accent="pink"] .sidebar-aside,
+html[data-theme="dark"][data-accent="pink"] .sidebar-aside {
   background: linear-gradient(170deg, #130c18 0%, #0f0a15 100%);
 }
 
@@ -105,7 +122,8 @@ html.dark[data-accent="pink"] .sidebar-aside {
 }
 
 /* Dark mode blue */
-html.dark[data-accent="indigo"] {
+html.dark[data-accent="indigo"],
+html[data-theme="dark"][data-accent="indigo"] {
   --void:          #070b16;   /* near-black navy base */
   --panel:         #0d1426;   /* deep navy panel */
   --raised:        #142038;   /* elevated steel surface */
@@ -125,7 +143,8 @@ html.dark[data-accent="indigo"] {
 }
 
 /* Blue-tinted sidebar gradient */
-html.dark[data-accent="indigo"] .sidebar-aside {
+html.dark[data-accent="indigo"] .sidebar-aside,
+html[data-theme="dark"][data-accent="indigo"] .sidebar-aside {
   background: linear-gradient(170deg, #070b16 0%, #060912 100%);
 }
 
@@ -1340,4 +1359,318 @@ html:not(.dark) .fitness-subnav-link.is-active {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ── 3D Printer panel (mobile-first) ─────────────────── */
+.printer-action-btn {
+  padding: 0.625rem 1.25rem;
+  min-height: 2.75rem;
+  border-radius: 0.875rem;
+  font-size: 11px;
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid;
+  transition: opacity 0.15s, transform 0.15s;
+  touch-action: manipulation;
+}
+.printer-action-btn:active:not(:disabled) { transform: scale(0.97); }
+.printer-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.printer-action-btn--pause { border-color: rgba(251, 191, 36, 0.4); color: rgb(251, 191, 36); background: rgba(251, 191, 36, 0.1); }
+.printer-action-btn--resume { border-color: rgba(52, 211, 153, 0.4); color: rgb(52, 211, 153); background: rgba(52, 211, 153, 0.1); }
+.printer-action-btn--cancel { border-color: rgba(244, 63, 94, 0.4); color: rgb(244, 63, 94); background: rgba(244, 63, 94, 0.1); }
+
+/* Fullscreen camera — expand stage to viewport (YouTube-style) */
+.printer-camera-stage {
+  position: relative;
+}
+.printer-camera-wrap:active { opacity: 0.95; }
+.printer-camera-wrap:active .printer-camera-fs-icon { transform: scale(0.92); }
+.printer-camera-fs-icon { transition: transform 0.12s ease; }
+
+.printer-camera-fsui {
+  display: none;
+  pointer-events: none;
+}
+.printer-camera-stage.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  margin: 0 !important;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.printer-camera-stage.is-fullscreen .printer-camera-wrap {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  aspect-ratio: unset;
+  border-radius: 0;
+  border: none;
+}
+.printer-camera-stage.is-fullscreen .printer-camera-wrap img {
+  object-fit: contain;
+}
+.printer-camera-stage.is-fullscreen .printer-camera-bar {
+  display: none;
+}
+.printer-camera-stage.is-fullscreen .printer-camera-fsui {
+  display: block;
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+.printer-camera-fsui__close {
+  pointer-events: auto;
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 2;
+}
+.printer-camera-fsui__stats {
+  pointer-events: none;
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  left: max(0.75rem, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+body.printer-camera-fs-open { overflow: hidden; }
+
+[data-printer-controls] {
+  margin-top: 0.25rem;
+}
+
+.printer-camera-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.printer-camera-shimmer.is-hidden { display: none; }
+
+.printer-sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+  z-index: 35;
+  padding: 0 0.75rem;
+  pointer-events: none;
+}
+.printer-sticky-bar__inner {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+body.printer-sticky-active .printer-page { padding-bottom: 7.5rem; }
+
+.printer-sticky-btn {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 0.75rem;
+  font-size: 11px;
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid;
+  touch-action: manipulation;
+}
+.printer-sticky-btn:disabled { opacity: 0.35; }
+.printer-sticky-btn--pause { border-color: rgba(251,191,36,0.5); color: rgb(251,191,36); background: rgba(251,191,36,0.12); }
+.printer-sticky-btn--resume { border-color: rgba(52,211,153,0.5); color: rgb(52,211,153); background: rgba(52,211,153,0.12); }
+.printer-sticky-btn--cancel { border-color: rgba(244,63,94,0.5); color: rgb(244,63,94); background: rgba(244,63,94,0.12); min-width: 4.5rem; }
+
+.printer-details summary::-webkit-details-marker { display: none; }
+
+.printer-fs-action {
+  flex: 1;
+  max-width: 10rem;
+  min-height: 3rem;
+  border-radius: 0.875rem;
+  font-size: 12px;
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid;
+  touch-action: manipulation;
+}
+.printer-fs-action:disabled { opacity: 0.35; }
+.printer-fs-action--pause { border-color: rgba(251,191,36,0.6); color: rgb(251,191,36); background: rgba(251,191,36,0.15); }
+.printer-fs-action--resume { border-color: rgba(52,211,153,0.6); color: rgb(52,211,153); background: rgba(52,211,153,0.15); }
+
+@media (min-width: 1024px) {
+  .printer-sticky-bar { display: none !important; }
+}
+
+/* ── Dashboard hub layout ─────────────────────────────── */
+.dashboard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-family: var(--font-display, inherit);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(148, 163, 184);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+}
+
+.dashboard-alert {
+  position: relative;
+  overflow: hidden;
+}
+.dashboard-alert--workout {
+  position: relative;
+  background: var(--panel);
+}
+.dashboard-alert__dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: rgb(52, 211, 153);
+  flex-shrink: 0;
+}
+.dashboard-alert__dot--live {
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25);
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+.dashboard-hub-card__glow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.dashboard-hub-card:hover .dashboard-hub-card__glow { opacity: 1; }
+.dashboard-hub-card__glow--emerald {
+  background: radial-gradient(ellipse at top right, rgba(52, 211, 153, 0.08), transparent 60%);
+}
+.dashboard-hub-card__glow--amber {
+  background: radial-gradient(ellipse at top right, rgba(251, 191, 36, 0.08), transparent 60%);
+}
+
+.dashboard-hub--printing {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.08);
+}
+.dashboard-hub--paused {
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+
+.dashboard-fitness-card {
+  transition: border-color 0.2s, transform 0.15s;
+}
+.dashboard-fitness-cta:active { transform: scale(0.97); }
+
+/* Pi health widget */
+.dashboard-health-card { transition: border-color 0.2s; }
+.dashboard-health-svc {
+  font-size: 9px;
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid var(--edge);
+  background: var(--raised);
+  color: rgb(148, 163, 184);
+}
+.dashboard-health-svc.is-up {
+  color: rgb(52, 211, 153);
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.08);
+}
+.dashboard-health-svc.is-down {
+  color: rgb(251, 191, 36);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+/* PWA install banner */
+.pwa-install-banner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+  padding: 0 0.75rem;
+  pointer-events: none;
+}
+.pwa-install-banner__inner {
+  pointer-events: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+.pwa-install-banner--http .pwa-install-banner__inner,
+.pwa-install-banner[data-mode="http"] .pwa-install-banner__inner {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+.pwa-install-banner__title {
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: rgb(241, 245, 249);
+}
+.pwa-install-banner__hint {
+  font-size: 0.7rem;
+  color: rgb(148, 163, 184);
+  margin-top: 0.15rem;
+  max-width: 16rem;
+}
+.pwa-install-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.pwa-install-banner__btn {
+  font-size: 10px;
+  font-family: var(--font-display, inherit);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--edge);
+  color: rgb(148, 163, 184);
+  background: var(--raised);
+}
+.pwa-install-banner__btn--primary {
+  color: rgb(34, 211, 238);
+  border-color: rgba(34, 211, 238, 0.35);
+  background: rgba(34, 211, 238, 0.1);
+}
+@media (min-width: 1024px) {
+  .pwa-install-banner { bottom: 1rem; max-width: 28rem; left: auto; right: 1rem; }
 }

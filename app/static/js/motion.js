@@ -187,6 +187,7 @@ const HomeOSMotion = (() => {
     container.addEventListener(
       "touchstart",
       (e) => {
+        if (e.target.closest("[data-ptr-ignore], button, a, input, select, textarea, [data-printer-camera-open]")) return;
         if (window.scrollY > 8) return;
         startY = e.touches[0].clientY;
         pulling = true;
