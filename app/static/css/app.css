@@ -1409,14 +1409,20 @@ html:not(.dark) .fitness-subnav-link.is-active {
 }
 .printer-camera-wrap:active { opacity: 0.95; }
 .printer-camera-wrap iframe,
+.printer-camera-wrap video-stream,
+.printer-camera-wrap video-stream video,
+.printer-camera-wrap [data-printer-webcam-host] video-stream,
 .printer-camera-media video,
 .printer-camera-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.printer-camera-wrap iframe {
-  object-fit: cover;
+.printer-camera-wrap video-stream video {
+  pointer-events: none;
+}
+.printer-camera-wrap video-stream video::-webkit-media-controls {
+  display: none !important;
 }
 .printer-camera-wrap:active .printer-camera-fs-icon { transform: scale(0.92); }
 .printer-camera-fs-icon { transition: transform 0.12s ease; }
@@ -1452,7 +1458,8 @@ html:not(.dark) .fitness-subnav-link.is-active {
   width: 100%;
   height: 100%;
 }
-.printer-camera-stage.is-fullscreen .printer-camera-wrap iframe,
+.printer-camera-stage.is-fullscreen .printer-camera-wrap video-stream,
+.printer-camera-stage.is-fullscreen .printer-camera-wrap video-stream video,
 .printer-camera-stage.is-fullscreen .printer-camera-wrap img,
 .printer-camera-stage.is-fullscreen .printer-camera-wrap video {
   object-fit: contain;

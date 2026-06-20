@@ -588,11 +588,7 @@ class CrealityK2Service:
         return {
             "available": available,
             "stream_available": bool(self.host),
-            "go2rtc_stream_url": (
-                f"http://{self.host}:1984/stream.html?src={go2rtc_src}&mode=webrtc"
-                if self.host else None
-            ),
-            "creality_ws_url": f"ws://{self.host}:9999" if self.host else None,
+            "go2rtc_ws_path": f"/printer/go2rtc/api/ws?src={go2rtc_src}" if self.host else None,
             "name": name if available else None,
             "fluidd_url": fluidd_url,
             "needs_setup": not available,

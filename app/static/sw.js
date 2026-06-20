@@ -1,4 +1,4 @@
-const CACHE = "homeos-v17";
+const CACHE = "homeos-v18";
 const ASSETS = [
   "/",
   "/static/css/app.css",

@@ -1,11 +1,21 @@
+"""Creality K2 Plus routes."""
+import json
+import queue
+
 from flask import Response, jsonify, render_template, request, stream_with_context
 from flask_login import login_required
 
 from ..integrations.http_client import HttpError
 from . import creality_k2_bp
+from .live_bridge import get_live_hub
 from .service import PREHEAT_PRESETS, CrealityK2Service
 
 _NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache, no-store",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
 
 
 @creality_k2_bp.route("/")
@@ -27,6 +37,32 @@ def panel():
 @login_required
 def status():
     return jsonify(CrealityK2Service().get_status()), 200, _NO_STORE
+
+
+@creality_k2_bp.route("/api/live/stream")
+@login_required
+def live_stream():
+    """SSE stream of Creality Print LAN telemetry (proxied from ws://printer:9999)."""
+    service = CrealityK2Service()
+    if service.is_mock or not service.host:
+        return jsonify({"error": "printer not configured"}), 404
+
+    hub = get_live_hub(service.host)
+
+    def generate():
+        sub = hub.subscribe()
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    patch = sub.get(timeout=20)
+                    yield f"data: {json.dumps(patch)}\n\n"
+                except queue.Empty:
+                    yield ": ping\n\n"
+        finally:
+            hub.unsubscribe(sub)
+
+    return Response(generate(), mimetype="text/event-stream", headers=_SSE_HEADERS)
 
 
 @creality_k2_bp.route("/api/pause", methods=["POST"])

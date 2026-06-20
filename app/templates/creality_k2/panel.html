@@ -10,8 +10,8 @@
      data-cancel-url="{{ url_for('creality_k2.cancel') }}"
      data-preheat-url="{{ url_for('creality_k2.preheat') }}"
      {% if camera.available %}data-webcam-url="{{ url_for('creality_k2.webcam_snapshot') }}"{% endif %}
-     {% if camera.go2rtc_stream_url %}data-go2rtc-stream-url="{{ camera.go2rtc_stream_url }}"{% endif %}
-     {% if camera.creality_ws_url %}data-creality-ws-url="{{ camera.creality_ws_url }}"{% endif %}
+     {% if camera.go2rtc_ws_path %}data-go2rtc-ws-path="{{ camera.go2rtc_ws_path }}"{% endif %}
+     {% if camera.available and status.host %}data-live-stream-url="{{ url_for('creality_k2.live_stream') }}"{% endif %}
      class="printer-page pb-28 lg:pb-12">
 
   {# ── Header ── #}
@@ -52,13 +52,8 @@
   <div data-printer-camera-stage class="printer-camera-stage mb-4">
     <div class="printer-camera-shell relative rounded-2xl overflow-hidden border border-edge bg-black aspect-video">
       <div class="printer-camera-wrap relative w-full h-full min-h-[12rem]">
-        <iframe data-printer-webcam-webrtc
-                title="{{ camera.name or 'Printer camera' }}"
-                class="absolute inset-0 w-full h-full border-0 bg-black hidden"
-                allow="autoplay; fullscreen; camera"
-                loading="lazy"></iframe>
+        <div data-printer-webcam-host class="absolute inset-0 w-full h-full overflow-hidden"></div>
         <img data-printer-webcam
-             src="{{ url_for('creality_k2.webcam_snapshot') }}"
              alt="{{ camera.name or 'Printer camera' }}"
              class="absolute inset-0 w-full h-full object-cover select-none hidden">
         <div class="printer-camera-shimmer absolute inset-0 pointer-events-none" data-printer-camera-loading aria-hidden="true"></div>

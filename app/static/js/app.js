@@ -93,10 +93,10 @@ function initPrinterPanel() {
   const cameraStage = printerPanel.querySelector("[data-printer-camera-stage]");
   const cameraOpenBtn = printerPanel.querySelector("[data-printer-camera-open]");
   const webcam = printerPanel.querySelector("[data-printer-webcam]");
-  const webcamWebrtc = printerPanel.querySelector("[data-printer-webcam-webrtc]");
+  const webcamHost = printerPanel.querySelector("[data-printer-webcam-host]");
   const webcamUrl = printerPanel.dataset.webcamUrl;
-  const go2rtcStreamUrl = printerPanel.dataset.go2rtcStreamUrl;
-  const crealityWsUrl = printerPanel.dataset.crealityWsUrl;
+  const go2rtcWsPath = printerPanel.dataset.go2rtcWsPath;
+  const liveStreamUrl = printerPanel.dataset.liveStreamUrl;
   let cameraStageAnchor = null;
   let lastStatus = null;
   let fsOpen = false;
@@ -106,6 +106,7 @@ function initPrinterPanel() {
   let webcamBlobUrl = null;
   let crealityWsLive = false;
   let crealityWsData = {};
+  let liveEventSource = null;
   let statusTimer = null;
   let webcamTimer = null;
   let lastCameraTap = 0;
@@ -168,39 +169,21 @@ function initPrinterPanel() {
     };
   }
 
-  function initCrealityWebSocket() {
-    if (!crealityWsUrl) return;
-
-    let ws;
-    let reconnectMs = 1000;
-
-    function scheduleReconnect() {
-      crealityWsLive = false;
-      restartStatusPolling();
-      setSyncLabel("Reconnecting to printer…", false);
-      setTimeout(connect, reconnectMs);
-      reconnectMs = Math.min(Math.round(reconnectMs * 1.6), 15000);
-    }
+  function initLiveStream() {
+    if (!liveStreamUrl || typeof EventSource === "undefined") return;
 
     function connect() {
-      try {
-        ws = new WebSocket(crealityWsUrl, ["wsslicer"]);
-      } catch (err) {
-        console.error(err);
-        scheduleReconnect();
-        return;
-      }
+      liveEventSource?.close();
+      liveEventSource = new EventSource(liveStreamUrl, { withCredentials: true });
 
-      ws.onopen = () => {
+      liveEventSource.onopen = () => {
         crealityWsLive = true;
-        reconnectMs = 1000;
         restartStatusPolling();
       };
 
-      ws.onmessage = (evt) => {
+      liveEventSource.onmessage = (evt) => {
         try {
           const patch = JSON.parse(evt.data);
-          if (!patch || typeof patch !== "object" || patch.method) return;
           Object.assign(crealityWsData, patch);
           applyPrinterStatus(mapCrealityWsToStatus(crealityWsData));
           const now = new Date();
@@ -213,8 +196,13 @@ function initPrinterPanel() {
         }
       };
 
-      ws.onclose = scheduleReconnect;
-      ws.onerror = () => ws.close();
+      liveEventSource.onerror = () => {
+        crealityWsLive = false;
+        restartStatusPolling();
+        setSyncLabel("Reconnecting to printer…", false);
+        liveEventSource?.close();
+        setTimeout(connect, 3000);
+      };
     }
 
     connect();
@@ -442,32 +430,63 @@ function initPrinterPanel() {
 
   function useSnapshotWebcam() {
     webcamMode = "snapshot";
-    webcamWebrtc?.classList.add("hidden");
+    webcamHost?.classList.add("hidden");
     webcam?.classList.remove("hidden");
     if (webcamUrl) scheduleWebcam(0);
+  }
+
+  async function initWebcam() {
+    if (go2rtcWsPath && webcamHost) {
+      webcamMode = "webrtc";
+      try {
+        await import("/printer/go2rtc/video-stream.js");
+        const stream = document.createElement("video-stream");
+        stream.mode = "webrtc,mse,hls";
+        stream.media = "video";
+        stream.background = true;
+        stream.visibilityCheck = false;
+        stream.style.cssText = "display:block;width:100%;height:100%;";
+        webcamHost.innerHTML = "";
+        webcamHost.classList.remove("hidden");
+        webcamHost.appendChild(stream);
+        stream.src = go2rtcWsPath;
+
+        const watchVideo = () => {
+          const vid = stream.querySelector("video");
+          if (!vid) return false;
+          const onPlaying = () => {
+            useWebrtcWebcam();
+            markWebcamReady();
+          };
+          if (vid.readyState >= 2) onPlaying();
+          else vid.addEventListener("playing", onPlaying, { once: true });
+          return true;
+        };
+
+        if (!watchVideo()) {
+          const observer = new MutationObserver(() => {
+            if (watchVideo()) observer.disconnect();
+          });
+          observer.observe(stream, { childList: true, subtree: true });
+        }
+
+        setTimeout(() => {
+          if (!webcamReady) useSnapshotWebcam();
+        }, 10000);
+        return;
+      } catch (err) {
+        console.error("WebRTC camera failed", err);
+      }
+    }
+    if (webcam && webcamUrl) useSnapshotWebcam();
   }
 
   function useWebrtcWebcam() {
     webcamMode = "webrtc";
     clearTimeout(webcamTimer);
     webcam?.classList.add("hidden");
-    webcamWebrtc?.classList.remove("hidden");
-    markWebcamReady();
-    printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "WebRTC · tap ⛶ for fullscreen";
-  }
-
-  function initWebcam() {
-    if (go2rtcStreamUrl && webcamWebrtc) {
-      webcamMode = "webrtc";
-      webcamWebrtc.onload = () => useWebrtcWebcam();
-      webcamWebrtc.onerror = () => useSnapshotWebcam();
-      webcamWebrtc.src = go2rtcStreamUrl;
-      setTimeout(() => {
-        if (!webcamReady) useSnapshotWebcam();
-      }, 6000);
-      return;
-    }
-    if (webcam && webcamUrl) useSnapshotWebcam();
+    webcamHost?.classList.remove("hidden");
+    printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "Live · tap ⛶ for fullscreen";
   }
 
   function openCameraFs(e) {
@@ -529,7 +548,7 @@ function initPrinterPanel() {
     if (e.key === "Escape" && fsOpen) closeCameraFs(e);
   });
 
-  initCrealityWebSocket();
+  initLiveStream();
   restartStatusPolling();
   refreshStatus();
 
