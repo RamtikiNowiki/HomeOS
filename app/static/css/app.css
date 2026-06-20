@@ -68,17 +68,18 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
-/* Theme toggle icons — one visible at a time (JS sets hidden; CSS backs it up) */
-.theme-icon-slot { display: block; }
-.theme-icon-sun[hidden],
-.theme-icon-moon[hidden] { display: none !important; }
-
-html[data-theme="light"] .theme-icon-sun { display: none !important; }
-html[data-theme="light"] .theme-icon-moon { display: block !important; }
-html[data-theme="dark"] .theme-icon-sun,
-html.dark .theme-icon-sun { display: block !important; }
-html[data-theme="dark"] .theme-icon-moon,
-html.dark .theme-icon-moon { display: none !important; }
+/* Theme toggle — one icon at a time via html[data-theme] */
+.theme-icon { display: none; }
+html[data-theme="dark"] .theme-icon--sun { display: block; }
+html[data-theme="light"] .theme-icon--moon { display: block; }
+/* Compact header button: both icons share one grid cell */
+button[data-action="toggle-theme"]:not(.theme-toggle-btn) {
+  display: grid;
+  place-items: center;
+}
+button[data-action="toggle-theme"]:not(.theme-toggle-btn) .theme-icon {
+  grid-area: 1 / 1;
+}
 
 /* Dark mode pink */
 html.dark[data-accent="pink"],
@@ -1298,6 +1299,20 @@ html:not(.dark) .fitness-subnav-link.is-active {
 .printer-bar-live {
   animation: printer-pulse 2s ease-in-out infinite;
 }
+.printer-bar-indeterminate {
+  background: linear-gradient(
+    90deg,
+    rgba(52, 211, 153, 0.35) 0%,
+    rgba(34, 211, 238, 0.85) 50%,
+    rgba(52, 211, 153, 0.35) 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: printer-bar-slide 1.4s linear infinite;
+}
+@keyframes printer-bar-slide {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
 @keyframes printer-pulse {
   0%, 100% { filter: brightness(1); box-shadow: none; }
   50%      { filter: brightness(1.15); box-shadow: 0 0 12px rgba(52, 211, 153, 0.45); }
@@ -1393,6 +1408,12 @@ html:not(.dark) .fitness-subnav-link.is-active {
   position: relative;
 }
 .printer-camera-wrap:active { opacity: 0.95; }
+.printer-camera-media video,
+.printer-camera-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .printer-camera-wrap:active .printer-camera-fs-icon { transform: scale(0.92); }
 .printer-camera-fs-icon { transition: transform 0.12s ease; }
 
@@ -1427,7 +1448,8 @@ html:not(.dark) .fitness-subnav-link.is-active {
   width: 100%;
   height: 100%;
 }
-.printer-camera-stage.is-fullscreen .printer-camera-wrap img {
+.printer-camera-stage.is-fullscreen .printer-camera-wrap img,
+.printer-camera-stage.is-fullscreen .printer-camera-wrap video {
   object-fit: contain;
 }
 .printer-camera-stage.is-fullscreen .printer-camera-bar {

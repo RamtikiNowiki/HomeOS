@@ -1,4 +1,4 @@
-from flask import Response, jsonify, render_template, request
+from flask import Response, jsonify, render_template, request, stream_with_context
 from flask_login import login_required
 
 from ..integrations.http_client import HttpError
@@ -85,3 +85,27 @@ def webcam_snapshot():
     if not data:
         return jsonify({"error": "camera not configured"}), 404
     return Response(data, mimetype=content_type)
+
+
+@creality_k2_bp.route("/api/webcam/stream")
+@login_required
+def webcam_stream():
+    """Proxy go2rtc MP4 — browser plays live H264 in <video>."""
+    service = CrealityK2Service()
+    if not service.get_video_stream_url():
+        return jsonify({"error": "camera stream not configured"}), 404
+
+    def generate():
+        try:
+            yield from service.iter_video_stream()
+        except HttpError:
+            return
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="video/mp4",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )

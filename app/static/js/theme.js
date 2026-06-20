@@ -1,14 +1,5 @@
 /** Theme — single source of truth for light/dark (PWA-safe). */
 window.HomeOSTheme = (() => {
-  function syncIcons(dark) {
-    document.querySelectorAll(".theme-icon-sun").forEach((el) => {
-      el.hidden = !dark;
-    });
-    document.querySelectorAll(".theme-icon-moon").forEach((el) => {
-      el.hidden = dark;
-    });
-  }
-
   function apply(mode) {
     const root = document.documentElement;
     const dark = mode === "dark";
@@ -25,7 +16,6 @@ window.HomeOSTheme = (() => {
         dark ? root.dataset.themeDark || "#0b0d16" : root.dataset.themeLight || "#f4f6fb"
       );
     }
-    syncIcons(dark);
   }
 
   function toggle() {
@@ -52,12 +42,8 @@ window.HomeOSTheme = (() => {
     } catch (_) {}
     apply(stored === "light" || stored === "dark" ? stored : defaultTheme || "dark");
     bindToggleButtons();
-    const resync = () => apply(document.documentElement.dataset.theme || defaultTheme || "dark");
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => {
-        resync();
-        bindToggleButtons();
-      });
+      document.addEventListener("DOMContentLoaded", bindToggleButtons);
     }
   }
 

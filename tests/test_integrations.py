@@ -1,7 +1,7 @@
 """Integration service smoke tests."""
 from app import create_app
 from app.home_assistant.service import HomeAssistantService
-from app.creality_k2.service import CrealityK2Service
+from app.creality_k2.service import CrealityK2Service, build_status_from_moonraker
 
 
 def test_ha_mock_lights():
@@ -52,3 +52,48 @@ def test_k2_mock_preheat_and_history():
         history = svc.get_print_history()
         assert len(history) >= 1
         assert "filename" in history[0]
+
+
+def test_k2_creality_motion_inference():
+    """Creality Print jobs often leave print_stats on standby while motion is active."""
+    payload = {
+        "print_stats": {"state": "standby", "filename": "", "print_duration": 0, "info": {}},
+        "display_status": {"progress": 0.0},
+        "virtual_sdcard": {"is_active": False, "progress": 0.0, "layer": 0, "layer_count": 0},
+        "extruder": {"temperature": 220.0, "target": 220.0},
+        "heater_bed": {"temperature": 50.0, "target": 50.0},
+        "gcode_move": {"speed_factor": 1.0},
+        "motion_report": {
+            "live_velocity": 26.0,
+            "live_extruder_velocity": 1.2,
+            "trapq": ["extruder", "toolhead"],
+        },
+        "output_pin fan1": {"value": 0.8},
+    }
+    status = build_status_from_moonraker(payload, host="192.168.1.239")
+    assert status["state"] == "printing"
+    assert status["progress_unknown"] is True
+    assert status["nozzle_temp"] == 220.0
+    assert status["fan_speed_pct"] == 80
+
+
+def test_k2_moonraker_progress_from_sdcard():
+    payload = {
+        "print_stats": {"state": "printing", "filename": "part.gcode", "print_duration": 120},
+        "display_status": {},
+        "virtual_sdcard": {
+            "is_active": True,
+            "file_position": 50000,
+            "file_size": 100000,
+            "layer": 12,
+            "layer_count": 240,
+        },
+        "extruder": {"temperature": 215.0, "target": 215.0},
+        "heater_bed": {"temperature": 60.0, "target": 60.0},
+        "gcode_move": {},
+        "motion_report": {},
+    }
+    status = build_status_from_moonraker(payload)
+    assert status["progress"] == 50
+    assert status["layer_current"] == 12
+    assert status["layer_total"] == 240

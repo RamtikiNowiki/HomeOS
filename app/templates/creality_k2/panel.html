@@ -9,6 +9,7 @@
      data-resume-url="{{ url_for('creality_k2.resume') }}"
      data-cancel-url="{{ url_for('creality_k2.cancel') }}"
      data-preheat-url="{{ url_for('creality_k2.preheat') }}"
+     {% if camera.stream_available %}data-webcam-stream-url="{{ url_for('creality_k2.webcam_stream') }}"{% endif %}
      {% if camera.available %}data-webcam-url="{{ url_for('creality_k2.webcam_snapshot') }}"{% endif %}
      class="printer-page pb-28 lg:pb-12">
 
@@ -52,9 +53,14 @@
       <button type="button" data-printer-camera-open data-ptr-ignore
               class="printer-camera-wrap group block w-full h-full relative touch-manipulation cursor-pointer p-0 border-0 bg-transparent text-left"
               aria-label="Open camera fullscreen">
-        <img data-printer-webcam src="{{ url_for('creality_k2.webcam_snapshot') }}"
-             alt="{{ camera.name or 'Printer camera' }}"
-             class="w-full h-full object-cover pointer-events-none select-none">
+        <div class="printer-camera-media relative w-full h-full">
+          <video data-printer-webcam-video
+                 class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none hidden"
+                 autoplay muted playsinline></video>
+          <img data-printer-webcam-img
+               alt="{{ camera.name or 'Printer camera' }}"
+               class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none">
+        </div>
         <div class="printer-camera-shimmer absolute inset-0 pointer-events-none" data-printer-camera-loading aria-hidden="true"></div>
         <div class="printer-camera-bar absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-between gap-2 pointer-events-none">
           <div class="text-left min-w-0">

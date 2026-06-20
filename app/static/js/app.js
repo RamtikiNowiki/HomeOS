@@ -92,12 +92,15 @@ function initPrinterPanel() {
   const stickyBar = document.querySelector("[data-printer-sticky-bar]");
   const cameraStage = printerPanel.querySelector("[data-printer-camera-stage]");
   const cameraOpenBtn = printerPanel.querySelector("[data-printer-camera-open]");
-  const webcam = printerPanel.querySelector("[data-printer-webcam]");
+  const webcamVideo = printerPanel.querySelector("[data-printer-webcam-video]");
+  const webcamImg = printerPanel.querySelector("[data-printer-webcam-img]");
   const webcamUrl = printerPanel.dataset.webcamUrl;
+  const webcamStreamUrl = printerPanel.dataset.webcamStreamUrl;
   let cameraStageAnchor = null;
   let lastStatus = null;
   let fsOpen = false;
   let webcamReady = false;
+  let webcamMode = "idle"; // "video" | "snapshot" | "idle"
   let statusTimer = null;
   let webcamTimer = null;
   let lastCameraTap = 0;
@@ -158,9 +161,14 @@ function initPrinterPanel() {
     document.body.classList.toggle("printer-sticky-active", show);
   }
 
+  function formatProgress(s) {
+    if (s.progress_unknown) return "—";
+    return `${s.progress}%`;
+  }
+
   function updateFullscreenHud(s) {
     if (!fsOpen || !cameraStage) return;
-    cameraStage.querySelector("[data-printer-fs-pct]")?.textContent = `${s.progress}%`;
+    cameraStage.querySelector("[data-printer-fs-pct]")?.textContent = formatProgress(s);
     cameraStage.querySelector("[data-printer-fs-layer]")?.textContent = `Layer ${s.layer_current}/${s.layer_total}`;
     cameraStage.querySelector("[data-printer-fs-eta]")?.textContent = `${s.time_remaining} left`;
   }
@@ -169,7 +177,7 @@ function initPrinterPanel() {
     const pct = printerPanel.querySelector("[data-printer-camera-overlay-pct]");
     if (!pct) return;
     if (s.state === "printing" || s.state === "paused") {
-      pct.textContent = `${s.progress}%`;
+      pct.textContent = formatProgress(s);
       pct.classList.remove("hidden");
     } else {
       pct.classList.add("hidden");
@@ -212,11 +220,17 @@ function initPrinterPanel() {
 
     const bar = printerPanel.querySelector("[data-printer-bar]");
     if (bar) {
-      bar.style.width = `${s.progress}%`;
+      if (s.progress_unknown) {
+        bar.style.width = "100%";
+        bar.classList.add("printer-bar-indeterminate");
+      } else {
+        bar.style.width = `${s.progress}%`;
+        bar.classList.remove("printer-bar-indeterminate");
+      }
       bar.classList.toggle("printer-bar-live", s.state === "printing");
     }
 
-    printerPanel.querySelector("[data-printer-pct]")?.textContent = `${s.progress}%`;
+    printerPanel.querySelector("[data-printer-pct]")?.textContent = formatProgress(s);
     printerPanel.querySelector("[data-printer-eta]")?.textContent = s.time_remaining;
     printerPanel.querySelector("[data-printer-elapsed]")?.textContent = s.time_elapsed;
     printerPanel.querySelector("[data-printer-filament]")?.textContent = s.filament_used_m ?? "0";
@@ -266,13 +280,18 @@ function initPrinterPanel() {
     }
   }
 
+  function markWebcamReady() {
+    webcamReady = true;
+    printerPanel.querySelector("[data-printer-camera-loading]")?.classList.add("is-hidden");
+    printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "Tap to fullscreen";
+  }
+
   function preloadWebcamInto(img, url) {
     if (!img) return;
     const loader = new Image();
     loader.onload = () => {
       img.src = loader.src;
-      webcamReady = true;
-      printerPanel.querySelector("[data-printer-camera-loading]")?.classList.add("is-hidden");
+      markWebcamReady();
     };
     loader.onerror = () => {
       if (!webcamReady) {
@@ -283,8 +302,63 @@ function initPrinterPanel() {
   }
 
   function refreshWebcam() {
-    if (!webcamUrl) return;
-    preloadWebcamInto(webcam, webcamUrl);
+    if (!webcamUrl || webcamMode === "video") return;
+    preloadWebcamInto(webcamImg, webcamUrl);
+  }
+
+  function useSnapshotMode(intervalMs = 750) {
+    webcamMode = "snapshot";
+    webcamVideo?.classList.add("hidden");
+    webcamImg?.classList.remove("hidden");
+    if (webcamVideo) {
+      webcamVideo.pause();
+      webcamVideo.removeAttribute("src");
+      webcamVideo.load();
+    }
+    refreshWebcam();
+    setWebcamInterval(intervalMs);
+  }
+
+  function useVideoMode() {
+    webcamMode = "video";
+    clearInterval(webcamTimer);
+    webcamTimer = null;
+    webcamImg?.classList.add("hidden");
+    webcamVideo?.classList.remove("hidden");
+    markWebcamReady();
+  }
+
+  function initWebcam() {
+    if (!webcamImg && !webcamVideo) return;
+
+    // Always start snapshot polling so the feed is never black while video connects.
+    if (webcamUrl) {
+      useSnapshotMode(750);
+    }
+
+    if (!webcamStreamUrl || !webcamVideo) return;
+
+    let videoConfirmed = false;
+    const confirmVideo = () => {
+      if (videoConfirmed) return;
+      videoConfirmed = true;
+      useVideoMode();
+    };
+
+    webcamVideo.addEventListener("loadeddata", confirmVideo);
+    webcamVideo.addEventListener("playing", confirmVideo);
+    webcamVideo.addEventListener("error", () => {
+      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
+    });
+
+    webcamVideo.src = webcamStreamUrl;
+    webcamVideo.play().catch(() => {
+      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
+    });
+
+    setTimeout(() => {
+      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
+    }, 4000);
   }
 
   function openCameraFs(e) {
@@ -307,8 +381,8 @@ function initPrinterPanel() {
       updateFullscreenHud(lastStatus);
       updateStickyBar(lastStatus);
     }
-    if (webcamUrl) refreshWebcam();
-    setWebcamInterval(3000);
+    if (webcamMode === "snapshot" && webcamUrl) refreshWebcam();
+    if (webcamMode === "snapshot") setWebcamInterval(500);
   }
 
   function closeCameraFs(e) {
@@ -326,7 +400,7 @@ function initPrinterPanel() {
       cameraStageAnchor.parentNode.insertBefore(cameraStage, cameraStageAnchor.nextSibling);
     }
     if (lastStatus) updateStickyBar(lastStatus);
-    setWebcamInterval(5000);
+    if (webcamMode === "snapshot") setWebcamInterval(750);
   }
 
   function handleCameraOpen(e) {
@@ -347,18 +421,15 @@ function initPrinterPanel() {
     if (e.key === "Escape" && fsOpen) closeCameraFs(e);
   });
   function setWebcamInterval(ms) {
-    if (!webcamUrl) return;
+    if (!webcamUrl || webcamMode === "video") return;
     clearInterval(webcamTimer);
     webcamTimer = setInterval(refreshWebcam, ms);
   }
 
-  statusTimer = setInterval(() => refreshStatus(), 8000);
+  statusTimer = setInterval(() => refreshStatus(), 2000);
   refreshStatus();
 
-  if (webcamUrl) {
-    refreshWebcam();
-    setWebcamInterval(5000);
-  }
+  initWebcam();
 
   const ptrRoot = document.getElementById("printer-ptr-root");
   if (ptrRoot && window.HomeOSMotion) {
@@ -426,13 +497,19 @@ function initDashboardPrinter() {
     widget.querySelector("[data-dp-state]")?.textContent =
       s.state === "printing" ? "Printing" : s.state === "paused" ? "Paused" : s.online === false ? "Offline" : s.state || "Standby";
     widget.querySelector("[data-dp-name]")?.textContent = s.print_name || "—";
-    widget.querySelector("[data-dp-pct]")?.textContent = `${s.progress}%`;
+    widget.querySelector("[data-dp-pct]")?.textContent = s.progress_unknown ? "—" : `${s.progress}%`;
     widget.querySelector("[data-dp-eta]")?.textContent = s.time_remaining || "—";
     widget.querySelector("[data-dp-nozzle]")?.textContent = `${s.nozzle_temp}°`;
     widget.querySelector("[data-dp-bed]")?.textContent = `${s.bed_temp}°`;
     const bar = widget.querySelector("[data-dp-bar]");
     if (bar) {
-      bar.style.width = `${s.progress}%`;
+      if (s.progress_unknown) {
+        bar.style.width = "100%";
+        bar.classList.add("printer-bar-indeterminate");
+      } else {
+        bar.style.width = `${s.progress}%`;
+        bar.classList.remove("printer-bar-indeterminate");
+      }
       bar.classList.toggle("printer-bar-live", s.state === "printing");
     }
     widget.classList.toggle("dashboard-hub--printing", s.state === "printing");
@@ -446,7 +523,7 @@ function initDashboardPrinter() {
       .catch(() => {});
 
   poll();
-  setInterval(poll, 12000);
+  setInterval(poll, 5000);
 }
 
 /** ── Dashboard Pi health widget ───────────────────────── */
