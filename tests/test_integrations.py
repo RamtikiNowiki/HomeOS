@@ -77,6 +77,35 @@ def test_k2_creality_motion_inference():
     assert status["fan_speed_pct"] == 80
 
 
+def test_k2_cur_print_data_progress():
+    """Creality Print stores live job stats in virtual_sdcard.cur_print_data."""
+    payload = {
+        "print_stats": {"state": "standby", "filename": "", "print_duration": 0, "info": {}},
+        "display_status": {},
+        "virtual_sdcard": {
+            "is_active": False,
+            "layer": 42,
+            "layer_count": 0,
+            "cur_print_data": {
+                "status": "printing",
+                "filename": "part.stl_PLA_10m.gcode",
+                "print_duration": 300,
+                "metadata": {"layer_count": 120, "estimated_time": 600},
+            },
+        },
+        "extruder": {"temperature": 215.0, "target": 215.0},
+        "heater_bed": {"temperature": 60.0, "target": 60.0},
+        "gcode_move": {},
+        "motion_report": {},
+    }
+    status = build_status_from_moonraker(payload)
+    assert status["state"] == "printing"
+    assert status["progress"] == 50
+    assert status["layer_current"] == 42
+    assert status["layer_total"] == 120
+    assert "part.stl" in status["print_name"]
+
+
 def test_k2_moonraker_progress_from_sdcard():
     payload = {
         "print_stats": {"state": "printing", "filename": "part.gcode", "print_duration": 120},

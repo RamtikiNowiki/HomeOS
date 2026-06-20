@@ -128,6 +128,20 @@ def _progress_from_cur_print_data(cur: dict) -> float | None:
         if val > 1.0:
             val /= 100.0
         return max(0.0, min(1.0, val))
+    meta = cur.get("metadata") or {}
+    est = meta.get("estimated_time")
+    dur = cur.get("print_duration")
+    if est and dur:
+        return max(0.0, min(1.0, float(dur) / float(est)))
+    return None
+
+
+def _state_from_cur_print_data(cur: dict) -> str | None:
+    if not isinstance(cur, dict):
+        return None
+    raw = (cur.get("status") or "").lower()
+    if raw in ("printing", "paused", "completed", "cancelled", "error"):
+        return "complete" if raw == "completed" else raw
     return None
 
 
@@ -150,6 +164,8 @@ def build_status_from_moonraker(status: dict, host: str | None = None) -> dict:
     print_stats = status.get("print_stats") or {}
     display = status.get("display_status") or {}
     vcard = status.get("virtual_sdcard") or {}
+    cur_print = vcard.get("cur_print_data") or {}
+    cur_meta = cur_print.get("metadata") or {}
     extruder = status.get("extruder") or {}
     bed = status.get("heater_bed") or {}
     gcode = status.get("gcode_move") or {}
@@ -158,14 +174,17 @@ def build_status_from_moonraker(status: dict, host: str | None = None) -> dict:
     klipper_state = _normalize_state(print_stats.get("state"))
     inferred_printing = _infer_printing_from_motion(motion, extruder, klipper_state)
     state = klipper_state
-    if state == "standby" and inferred_printing:
+    cur_state = _state_from_cur_print_data(cur_print)
+    if cur_state and klipper_state == "standby":
+        state = cur_state
+    elif state == "standby" and inferred_printing:
         state = "printing"
 
     progress_raw = display.get("progress")
     if progress_raw is None:
         progress_raw = vcard.get("progress")
     if progress_raw is None:
-        progress_raw = _progress_from_cur_print_data(vcard.get("cur_print_data") or {})
+        progress_raw = _progress_from_cur_print_data(cur_print)
 
     if progress_raw is None and vcard.get("is_active"):
         file_size = float(vcard.get("file_size") or 0)
@@ -179,23 +198,26 @@ def build_status_from_moonraker(status: dict, host: str | None = None) -> dict:
         and progress == 0
         and not vcard.get("is_active")
         and not print_stats.get("filename")
+        and not cur_print.get("filename")
         and vcard.get("layer") in (None, 0, "")
     )
 
-    filename = print_stats.get("filename") or vcard.get("file_path") or "—"
+    filename = print_stats.get("filename") or cur_print.get("filename") or vcard.get("file_path") or "—"
     if isinstance(filename, str) and "/" in filename:
         filename = filename.rsplit("/", 1)[-1]
     if filename in ("", "—") and state == "printing" and progress_unknown:
         filename = "Active print"
-    print_duration = print_stats.get("print_duration")
-    total_duration = print_stats.get("total_duration")
+    print_duration = print_stats.get("print_duration") or cur_print.get("print_duration")
+    total_duration = print_stats.get("total_duration") or cur_print.get("total_duration")
 
-    filament_mm = print_stats.get("filament_used") or 0
+    filament_mm = print_stats.get("filament_used") or cur_print.get("filament_used") or 0
     filament_m = round(float(filament_mm) / 1000.0, 2) if filament_mm else 0.0
 
     eta_seconds = None
     if print_duration and progress > 0 and progress < 100:
         eta_seconds = (float(print_duration) / progress) * (100 - progress)
+    elif cur_meta.get("estimated_time") and print_duration:
+        eta_seconds = max(0.0, float(cur_meta["estimated_time"]) - float(print_duration))
 
     speed_factor = gcode.get("speed_factor")
 
@@ -205,7 +227,7 @@ def build_status_from_moonraker(status: dict, host: str | None = None) -> dict:
         or vcard.get("layer")
         or display.get("layer")
     )
-    layer_total = info.get("total_layer") or vcard.get("layer_count")
+    layer_total = info.get("total_layer") or vcard.get("layer_count") or cur_meta.get("layer_count")
 
     if progress_unknown:
         msg = display.get("message") or print_stats.get("message") or "Printing"
@@ -562,9 +584,15 @@ class CrealityK2Service:
             snapshot_url = f"http://{self.host}:1984/api/frame.jpeg?src=k2plus"
 
         available = bool(self.host or cam or snapshot_url)
+        go2rtc_src = self._go2rtc_src_from_cam(cam) if cam else "k2plus"
         return {
             "available": available,
-            "stream_available": stream_available,
+            "stream_available": bool(self.host),
+            "go2rtc_stream_url": (
+                f"http://{self.host}:1984/stream.html?src={go2rtc_src}&mode=webrtc"
+                if self.host else None
+            ),
+            "creality_ws_url": f"ws://{self.host}:9999" if self.host else None,
             "name": name if available else None,
             "fluidd_url": fluidd_url,
             "needs_setup": not available,

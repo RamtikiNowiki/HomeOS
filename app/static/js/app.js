@@ -93,16 +93,137 @@ function initPrinterPanel() {
   const cameraStage = printerPanel.querySelector("[data-printer-camera-stage]");
   const cameraOpenBtn = printerPanel.querySelector("[data-printer-camera-open]");
   const webcam = printerPanel.querySelector("[data-printer-webcam]");
+  const webcamWebrtc = printerPanel.querySelector("[data-printer-webcam-webrtc]");
   const webcamUrl = printerPanel.dataset.webcamUrl;
+  const go2rtcStreamUrl = printerPanel.dataset.go2rtcStreamUrl;
+  const crealityWsUrl = printerPanel.dataset.crealityWsUrl;
   let cameraStageAnchor = null;
   let lastStatus = null;
   let fsOpen = false;
   let webcamReady = false;
+  let webcamMode = "none"; // "webrtc" | "snapshot" | "none"
   let webcamBusy = false;
   let webcamBlobUrl = null;
+  let crealityWsLive = false;
+  let crealityWsData = {};
   let statusTimer = null;
   let webcamTimer = null;
   let lastCameraTap = 0;
+
+  function formatSeconds(sec) {
+    const n = parseInt(sec, 10);
+    if (!n || n < 0) return "—";
+    if (n < 60) return `${n}s`;
+    const minutes = Math.floor(n / 60);
+    const seconds = n % 60;
+    if (minutes < 60) return `${minutes}m ${seconds}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+
+  /** Map Creality Print LAN WebSocket payload → dashboard status (same as Moonraker API). */
+  function mapCrealityWsToStatus(d) {
+    const fname = (d.printFileName || "").trim();
+    const rawState = d.state;
+    let state = "standby";
+    let progress = parseInt(d.printProgress ?? d.dProgress ?? 0, 10);
+    if (Number.isNaN(progress)) progress = 0;
+
+    if ((d.err || {}).errcode) {
+      state = "error";
+    } else if (d.withSelfTest >= 1 && d.withSelfTest <= 99) {
+      state = "standby";
+    } else if (fname) {
+      if (progress >= 100) state = "complete";
+      else if (rawState === 5 || d.pause === 1) state = "paused";
+      else if (rawState === 4) state = "cancelled";
+      else if (rawState === 1 || rawState === 0) state = "printing";
+    }
+
+    const layer = parseInt(d.layer ?? 0, 10) || 0;
+    const totalLayer = parseInt(d.TotalLayer ?? 0, 10) || 0;
+
+    return {
+      online: true,
+      state,
+      print_name: fname || "—",
+      progress: Math.max(0, Math.min(100, progress)),
+      progress_unknown: false,
+      time_elapsed: formatSeconds(d.printJobTime),
+      time_remaining: formatSeconds(d.printLeftTime),
+      nozzle_temp: Math.round(parseFloat(d.nozzleTemp) || 0),
+      nozzle_target: Math.round(parseFloat(d.targetNozzleTemp) || 0),
+      bed_temp: Math.round(parseFloat(d.bedTemp0) || 0),
+      bed_target: Math.round(parseFloat(d.targetBedTemp0) || 0),
+      chamber_temp: d.boxTemp != null ? Math.round(parseFloat(d.boxTemp)) : null,
+      layer_current: layer || "—",
+      layer_total: totalLayer || "—",
+      filament_used_m: Math.round((parseFloat(d.usedMaterialLength) || 0) / 1000 * 10) / 10,
+      fan_speed_pct: d.modelFanPct ?? null,
+      print_speed_pct: d.curFeedratePct ?? 100,
+      status_message: state === "printing" && layer ? `Layer ${layer}/${totalLayer || "?"}` : state,
+      can_pause: state === "printing",
+      can_resume: state === "paused",
+      can_cancel: state === "printing" || state === "paused",
+    };
+  }
+
+  function initCrealityWebSocket() {
+    if (!crealityWsUrl) return;
+
+    let ws;
+    let reconnectMs = 1000;
+
+    function scheduleReconnect() {
+      crealityWsLive = false;
+      restartStatusPolling();
+      setSyncLabel("Reconnecting to printer…", false);
+      setTimeout(connect, reconnectMs);
+      reconnectMs = Math.min(Math.round(reconnectMs * 1.6), 15000);
+    }
+
+    function connect() {
+      try {
+        ws = new WebSocket(crealityWsUrl, ["wsslicer"]);
+      } catch (err) {
+        console.error(err);
+        scheduleReconnect();
+        return;
+      }
+
+      ws.onopen = () => {
+        crealityWsLive = true;
+        reconnectMs = 1000;
+        restartStatusPolling();
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const patch = JSON.parse(evt.data);
+          if (!patch || typeof patch !== "object" || patch.method) return;
+          Object.assign(crealityWsData, patch);
+          applyPrinterStatus(mapCrealityWsToStatus(crealityWsData));
+          const now = new Date();
+          setSyncLabel(
+            `Live · ${now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`,
+            false
+          );
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      ws.onclose = scheduleReconnect;
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+  }
+
+  function restartStatusPolling() {
+    clearInterval(statusTimer);
+    statusTimer = setInterval(refreshStatus, crealityWsLive ? 30000 : 2000);
+  }
 
   function tempBarPct(current, target) {
     const t = parseFloat(target) || 0;
@@ -259,10 +380,11 @@ function initPrinterPanel() {
     updateStickyBar(s);
     updateCameraOverlay(s);
     updateFullscreenHud(s);
-    syncTimeLabel();
+    if (!crealityWsLive) syncTimeLabel();
   }
 
   async function refreshStatus() {
+    if (crealityWsLive) return;
     try {
       const res = await fetch(statusUrl, {
         headers: { Accept: "application/json" },
@@ -286,7 +408,7 @@ function initPrinterPanel() {
 
   /** One frame at a time — K2 snapshots take ~2–3s; overlapping polls just queue up. */
   async function refreshWebcamFrame() {
-    if (!webcamUrl || !webcam || webcamBusy) return;
+    if (!webcamUrl || !webcam || webcamBusy || webcamMode !== "snapshot") return;
     webcamBusy = true;
     try {
       const res = await fetch(`${webcamUrl}?t=${Date.now()}`, {
@@ -313,14 +435,39 @@ function initPrinterPanel() {
   }
 
   function scheduleWebcam(delayMs = 400) {
-    if (!webcamUrl) return;
+    if (!webcamUrl || webcamMode !== "snapshot") return;
     clearTimeout(webcamTimer);
     webcamTimer = setTimeout(refreshWebcamFrame, delayMs);
   }
 
+  function useSnapshotWebcam() {
+    webcamMode = "snapshot";
+    webcamWebrtc?.classList.add("hidden");
+    webcam?.classList.remove("hidden");
+    if (webcamUrl) scheduleWebcam(0);
+  }
+
+  function useWebrtcWebcam() {
+    webcamMode = "webrtc";
+    clearTimeout(webcamTimer);
+    webcam?.classList.add("hidden");
+    webcamWebrtc?.classList.remove("hidden");
+    markWebcamReady();
+    printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "WebRTC · tap ⛶ for fullscreen";
+  }
+
   function initWebcam() {
-    if (!webcam || !webcamUrl) return;
-    scheduleWebcam(0);
+    if (go2rtcStreamUrl && webcamWebrtc) {
+      webcamMode = "webrtc";
+      webcamWebrtc.onload = () => useWebrtcWebcam();
+      webcamWebrtc.onerror = () => useSnapshotWebcam();
+      webcamWebrtc.src = go2rtcStreamUrl;
+      setTimeout(() => {
+        if (!webcamReady) useSnapshotWebcam();
+      }, 6000);
+      return;
+    }
+    if (webcam && webcamUrl) useSnapshotWebcam();
   }
 
   function openCameraFs(e) {
@@ -343,7 +490,7 @@ function initPrinterPanel() {
       updateFullscreenHud(lastStatus);
       updateStickyBar(lastStatus);
     }
-    if (webcamUrl) scheduleWebcam(0);
+    if (webcamMode === "snapshot" && webcamUrl) scheduleWebcam(0);
   }
 
   function closeCameraFs(e) {
@@ -361,7 +508,7 @@ function initPrinterPanel() {
       cameraStageAnchor.parentNode.insertBefore(cameraStage, cameraStageAnchor.nextSibling);
     }
     if (lastStatus) updateStickyBar(lastStatus);
-    if (webcamUrl) scheduleWebcam(0);
+    if (webcamMode === "snapshot" && webcamUrl) scheduleWebcam(0);
   }
 
   function handleCameraOpen(e) {
@@ -382,7 +529,8 @@ function initPrinterPanel() {
     if (e.key === "Escape" && fsOpen) closeCameraFs(e);
   });
 
-  statusTimer = setInterval(refreshStatus, 2000);
+  initCrealityWebSocket();
+  restartStatusPolling();
   refreshStatus();
 
   initWebcam();

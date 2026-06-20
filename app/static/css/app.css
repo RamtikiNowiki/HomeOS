@@ -1408,10 +1408,14 @@ html:not(.dark) .fitness-subnav-link.is-active {
   position: relative;
 }
 .printer-camera-wrap:active { opacity: 0.95; }
+.printer-camera-wrap iframe,
 .printer-camera-media video,
 .printer-camera-media img {
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+.printer-camera-wrap iframe {
   object-fit: cover;
 }
 .printer-camera-wrap:active .printer-camera-fs-icon { transform: scale(0.92); }
@@ -1448,6 +1452,7 @@ html:not(.dark) .fitness-subnav-link.is-active {
   width: 100%;
   height: 100%;
 }
+.printer-camera-stage.is-fullscreen .printer-camera-wrap iframe,
 .printer-camera-stage.is-fullscreen .printer-camera-wrap img,
 .printer-camera-stage.is-fullscreen .printer-camera-wrap video {
   object-fit: contain;
