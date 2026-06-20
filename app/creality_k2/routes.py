@@ -5,6 +5,8 @@ from ..integrations.http_client import HttpError
 from . import creality_k2_bp
 from .service import PREHEAT_PRESETS, CrealityK2Service
 
+_NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+
 
 @creality_k2_bp.route("/")
 @login_required
@@ -24,7 +26,7 @@ def panel():
 @creality_k2_bp.route("/api/status")
 @login_required
 def status():
-    return jsonify(CrealityK2Service().get_status())
+    return jsonify(CrealityK2Service().get_status()), 200, _NO_STORE
 
 
 @creality_k2_bp.route("/api/pause", methods=["POST"])
@@ -84,7 +86,7 @@ def webcam_snapshot():
         return jsonify({"error": str(exc)}), 502
     if not data:
         return jsonify({"error": "camera not configured"}), 404
-    return Response(data, mimetype=content_type)
+    return Response(data, mimetype=content_type, headers=_NO_STORE)
 
 
 @creality_k2_bp.route("/api/webcam/stream")

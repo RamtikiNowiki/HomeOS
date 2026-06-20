@@ -439,7 +439,7 @@ class CrealityK2Service:
     def _snapshot_candidates(self, cam: dict | None = None) -> list[str]:
         urls: list[str] = []
         seen: set[str] = set()
-        src = self._go2rtc_src_from_cam(cam)
+        src = self._go2rtc_src_from_cam(cam) if cam else "k2plus"
 
         def add(url: str | None) -> None:
             if not url:
@@ -455,8 +455,6 @@ class CrealityK2Service:
         if cam:
             add(cam.get("snapshot_url"))
             add(self._snapshot_from_stream(cam.get("stream_url")))
-        if self.host:
-            add(f"http://{self.host}:4409/go2rtc/api/frame.jpeg?src={src}")
 
         return urls
 
@@ -515,7 +513,7 @@ class CrealityK2Service:
         req = urllib.request.Request(snapshot_url, headers={"User-Agent": "HomeOS/1.0"})
         if self.api_key:
             req.add_header("X-Api-Key", self.api_key)
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             content_type = resp.headers.get("Content-Type", "image/jpeg")
             data = resp.read()
         if len(data) < 500:
@@ -545,7 +543,7 @@ class CrealityK2Service:
             }
 
         snapshot_url = self._configured_snapshot_url()
-        stream_available = bool(self.host)
+        stream_available = False  # K2 go2rtc MJPEG/MP4 breaks in-browser; use snapshot poll
         name = "K2 Camera"
         cam: dict | None = None
         try:
@@ -563,10 +561,10 @@ class CrealityK2Service:
         if not snapshot_url and self.host:
             snapshot_url = f"http://{self.host}:1984/api/frame.jpeg?src=k2plus"
 
-        available = bool(cam or snapshot_url)
+        available = bool(self.host or cam or snapshot_url)
         return {
             "available": available,
-            "stream_available": available and stream_available,
+            "stream_available": stream_available,
             "name": name if available else None,
             "fluidd_url": fluidd_url,
             "needs_setup": not available,
@@ -580,6 +578,15 @@ class CrealityK2Service:
     def fetch_webcam_snapshot(self) -> tuple[bytes | None, str]:
         if self.is_mock:
             return None, "image/jpeg"
+
+        if self.host:
+            src = "k2plus"
+            try:
+                return self._fetch_snapshot_bytes(
+                    f"http://{self.host}:1984/api/frame.jpeg?src={src}"
+                )
+            except OSError:
+                pass
 
         cam: dict | None = None
         try:

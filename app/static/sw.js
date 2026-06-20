@@ -1,4 +1,4 @@
-const CACHE = "homeos-v15";
+const CACHE = "homeos-v16";
 const ASSETS = [
   "/",
   "/static/css/app.css",
@@ -32,6 +32,12 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
   if (url.pathname === "/sw.js" || url.pathname === "/manifest.webmanifest") return;
+
+  // Never cache live API / printer polling — always hit the network.
+  if (url.pathname.includes("/api/")) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
 
   if (url.pathname.startsWith("/static/")) {
     e.respondWith(

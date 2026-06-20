@@ -92,15 +92,14 @@ function initPrinterPanel() {
   const stickyBar = document.querySelector("[data-printer-sticky-bar]");
   const cameraStage = printerPanel.querySelector("[data-printer-camera-stage]");
   const cameraOpenBtn = printerPanel.querySelector("[data-printer-camera-open]");
-  const webcamVideo = printerPanel.querySelector("[data-printer-webcam-video]");
-  const webcamImg = printerPanel.querySelector("[data-printer-webcam-img]");
+  const webcam = printerPanel.querySelector("[data-printer-webcam]");
   const webcamUrl = printerPanel.dataset.webcamUrl;
-  const webcamStreamUrl = printerPanel.dataset.webcamStreamUrl;
   let cameraStageAnchor = null;
   let lastStatus = null;
   let fsOpen = false;
   let webcamReady = false;
-  let webcamMode = "idle"; // "video" | "snapshot" | "idle"
+  let webcamBusy = false;
+  let webcamBlobUrl = null;
   let statusTimer = null;
   let webcamTimer = null;
   let lastCameraTap = 0;
@@ -265,15 +264,14 @@ function initPrinterPanel() {
 
   async function refreshStatus() {
     try {
-      const res = await fetch(statusUrl, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+      const res = await fetch(statusUrl, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      try {
-        applyPrinterStatus(data);
-      } catch (applyErr) {
-        console.error(applyErr);
-        syncTimeLabel();
-      }
+      applyPrinterStatus(data);
     } catch (err) {
       console.error(err);
       setSyncLabel("Printer unreachable", true);
@@ -286,79 +284,43 @@ function initPrinterPanel() {
     printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "Tap to fullscreen";
   }
 
-  function preloadWebcamInto(img, url) {
-    if (!img) return;
-    const loader = new Image();
-    loader.onload = () => {
-      img.src = loader.src;
+  /** One frame at a time — K2 snapshots take ~2–3s; overlapping polls just queue up. */
+  async function refreshWebcamFrame() {
+    if (!webcamUrl || !webcam || webcamBusy) return;
+    webcamBusy = true;
+    try {
+      const res = await fetch(`${webcamUrl}?t=${Date.now()}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (!blob.size) throw new Error("empty frame");
+      const url = URL.createObjectURL(blob);
+      if (webcamBlobUrl) URL.revokeObjectURL(webcamBlobUrl);
+      webcamBlobUrl = url;
+      webcam.src = url;
       markWebcamReady();
-    };
-    loader.onerror = () => {
+    } catch (err) {
+      console.error("webcam frame", err);
       if (!webcamReady) {
         printerPanel.querySelector("[data-printer-camera-hint]")?.textContent = "Camera loading…";
       }
-    };
-    loader.src = `${url}?t=${Date.now()}`;
-  }
-
-  function refreshWebcam() {
-    if (!webcamUrl || webcamMode === "video") return;
-    preloadWebcamInto(webcamImg, webcamUrl);
-  }
-
-  function useSnapshotMode(intervalMs = 750) {
-    webcamMode = "snapshot";
-    webcamVideo?.classList.add("hidden");
-    webcamImg?.classList.remove("hidden");
-    if (webcamVideo) {
-      webcamVideo.pause();
-      webcamVideo.removeAttribute("src");
-      webcamVideo.load();
+    } finally {
+      webcamBusy = false;
+      scheduleWebcam(400);
     }
-    refreshWebcam();
-    setWebcamInterval(intervalMs);
   }
 
-  function useVideoMode() {
-    webcamMode = "video";
-    clearInterval(webcamTimer);
-    webcamTimer = null;
-    webcamImg?.classList.add("hidden");
-    webcamVideo?.classList.remove("hidden");
-    markWebcamReady();
+  function scheduleWebcam(delayMs = 400) {
+    if (!webcamUrl) return;
+    clearTimeout(webcamTimer);
+    webcamTimer = setTimeout(refreshWebcamFrame, delayMs);
   }
 
   function initWebcam() {
-    if (!webcamImg && !webcamVideo) return;
-
-    // Always start snapshot polling so the feed is never black while video connects.
-    if (webcamUrl) {
-      useSnapshotMode(750);
-    }
-
-    if (!webcamStreamUrl || !webcamVideo) return;
-
-    let videoConfirmed = false;
-    const confirmVideo = () => {
-      if (videoConfirmed) return;
-      videoConfirmed = true;
-      useVideoMode();
-    };
-
-    webcamVideo.addEventListener("loadeddata", confirmVideo);
-    webcamVideo.addEventListener("playing", confirmVideo);
-    webcamVideo.addEventListener("error", () => {
-      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
-    });
-
-    webcamVideo.src = webcamStreamUrl;
-    webcamVideo.play().catch(() => {
-      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
-    });
-
-    setTimeout(() => {
-      if (!videoConfirmed && webcamUrl) useSnapshotMode(750);
-    }, 4000);
+    if (!webcam || !webcamUrl) return;
+    scheduleWebcam(0);
   }
 
   function openCameraFs(e) {
@@ -381,8 +343,7 @@ function initPrinterPanel() {
       updateFullscreenHud(lastStatus);
       updateStickyBar(lastStatus);
     }
-    if (webcamMode === "snapshot" && webcamUrl) refreshWebcam();
-    if (webcamMode === "snapshot") setWebcamInterval(500);
+    if (webcamUrl) scheduleWebcam(0);
   }
 
   function closeCameraFs(e) {
@@ -400,7 +361,7 @@ function initPrinterPanel() {
       cameraStageAnchor.parentNode.insertBefore(cameraStage, cameraStageAnchor.nextSibling);
     }
     if (lastStatus) updateStickyBar(lastStatus);
-    if (webcamMode === "snapshot") setWebcamInterval(750);
+    if (webcamUrl) scheduleWebcam(0);
   }
 
   function handleCameraOpen(e) {
@@ -420,13 +381,8 @@ function initPrinterPanel() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && fsOpen) closeCameraFs(e);
   });
-  function setWebcamInterval(ms) {
-    if (!webcamUrl || webcamMode === "video") return;
-    clearInterval(webcamTimer);
-    webcamTimer = setInterval(refreshWebcam, ms);
-  }
 
-  statusTimer = setInterval(() => refreshStatus(), 2000);
+  statusTimer = setInterval(refreshStatus, 2000);
   refreshStatus();
 
   initWebcam();
@@ -435,7 +391,7 @@ function initPrinterPanel() {
   if (ptrRoot && window.HomeOSMotion) {
     HomeOSMotion.initPullToRefresh(ptrRoot, async () => {
       await refreshStatus();
-      refreshWebcam();
+      scheduleWebcam(0);
     });
   }
 
@@ -517,7 +473,11 @@ function initDashboardPrinter() {
   };
 
   const poll = () =>
-    fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
+    fetch(url, {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+      cache: "no-store",
+    })
       .then((r) => r.json())
       .then(apply)
       .catch(() => {});

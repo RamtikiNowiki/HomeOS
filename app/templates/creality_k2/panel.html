@@ -9,7 +9,6 @@
      data-resume-url="{{ url_for('creality_k2.resume') }}"
      data-cancel-url="{{ url_for('creality_k2.cancel') }}"
      data-preheat-url="{{ url_for('creality_k2.preheat') }}"
-     {% if camera.stream_available %}data-webcam-stream-url="{{ url_for('creality_k2.webcam_stream') }}"{% endif %}
      {% if camera.available %}data-webcam-url="{{ url_for('creality_k2.webcam_snapshot') }}"{% endif %}
      class="printer-page pb-28 lg:pb-12">
 
@@ -54,10 +53,8 @@
               class="printer-camera-wrap group block w-full h-full relative touch-manipulation cursor-pointer p-0 border-0 bg-transparent text-left"
               aria-label="Open camera fullscreen">
         <div class="printer-camera-media relative w-full h-full">
-          <video data-printer-webcam-video
-                 class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none hidden"
-                 autoplay muted playsinline></video>
-          <img data-printer-webcam-img
+          <img data-printer-webcam
+               src="{{ url_for('creality_k2.webcam_snapshot') }}"
                alt="{{ camera.name or 'Printer camera' }}"
                class="absolute inset-0 w-full h-full object-cover pointer-events-none select-none">
         </div>
